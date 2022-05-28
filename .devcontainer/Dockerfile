@@ -26,34 +26,19 @@ RUN set -eux; \
 
 ENV PATH /usr/local/go/bin:$PATH
 
-ENV GOLANG_VERSION 1.18.1
+ENV GOLANG_VERSION 1.18.2
 
 RUN set -eux; \
 	arch="$(dpkg --print-architecture)"; arch="${arch##*-}"; \
 	url=; \
 	case "$arch" in \
 		'amd64') \
-			url='https://dl.google.com/go/go1.18.1.linux-amd64.tar.gz'; \
-			sha256='b3b815f47ababac13810fc6021eb73d65478e0b2db4b09d348eefad9581a2334'; \
-			;; \
-		'armel') \
-			export GOARCH='arm' GOARM='5' GOOS='linux'; \
-			;; \
-		'armhf') \
-			url='https://dl.google.com/go/go1.18.1.linux-armv6l.tar.gz'; \
-			sha256='9edc01c8e7db64e9ceeffc8258359e027812886ceca3444e83c4eb96ddb068ee'; \
+			url='https://dl.google.com/go/go1.18.2.linux-amd64.tar.gz'; \
+			sha256='e54bec97a1a5d230fc2f9ad0880fcbabb5888f30ed9666eca4a91c5a32e86cbc'; \
 			;; \
 		'arm64') \
-			url='https://dl.google.com/go/go1.18.1.linux-arm64.tar.gz'; \
-			sha256='56a91851c97fb4697077abbca38860f735c32b38993ff79b088dac46e4735633'; \
-			;; \
-		'i386') \
-			url='https://dl.google.com/go/go1.18.1.linux-386.tar.gz'; \
-			sha256='9a8df5dde9058f08ac01ecfaae42534610db398e487138788c01da26a0d41ff9'; \
-			;; \
-		'ppc64el') \
-			url='https://dl.google.com/go/go1.18.1.linux-ppc64le.tar.gz'; \
-			sha256='33db623d1eecf362fe365107c12efc90eff0b9609e0b3345e258388019cb552a'; \
+			url='https://dl.google.com/go/go1.18.2.linux-arm64.tar.gz'; \
+			sha256='fc4ad28d0501eaa9c9d6190de3888c9d44d8b5fb02183ce4ae93713f67b8a35b'; \
 			;; \
 		*) echo >&2 "error: unsupported architecture '$arch' (likely packaging update needed)"; exit 1 ;; \
 	esac; \
@@ -125,7 +110,7 @@ ENV PATH $GOPATH/bin:$PATH
 RUN mkdir -p "$GOPATH/pkg" "$GOPATH/bin" && chown -R zlkv:staff "$GOPATH/pkg" "$GOPATH/bin"
 WORKDIR $GOPATH/src
 RUN touch ~/.profile
-RUN echo 'export PS1="[\A]\u@mailetter:\W\\$ "' >> ~/.profile
+RUN echo 'export PS1="[\A]\u@\h:\W\\$ "' >> ~/.profile
 USER zlkv
 RUN touch ~/.profile
-RUN echo 'export PS1="[\A]\u@mailetter:\W\\$ "' >> ~/.profile
+RUN echo 'export PS1="[\A]\u@\h:\W\\$ "' >> ~/.profile

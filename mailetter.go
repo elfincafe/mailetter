@@ -1,116 +1,157 @@
 package mailetter
 
 import (
-	"encoding/base64"
 	"fmt"
+	"encoding/base64"
 	"math/rand"
-	"path/filepath"
+	"net/smtp"
 	"strings"
+	"syscall"
 	"time"
 )
 
 type MaiLetter struct {
-	dsn    string
-	client string
-	to     [][2]string
-	cc     [][2]string
-	bcc    []string
-	subj   string
-	body   string
-	from   [2]string
-	atts   []*Att
-	auth   Auth
-	border string
+	dsn         *Dsn
+	client      *smtp.Client
+	hostname	string
+	to          []*Addr
+	cc          []*Addr
+	bcc         []*Addr
+	subject        string
+	body        string
+	from        *Addr
+	vars		map[string]interface{}
+	attachments []*Attachment
+	auth        *Auth
+	border      string
 }
 
-type Att struct {
-	content []byte
-	name    string
-	path    string
-}
-
-type Auth struct {
-	user     string
-	password string
-}
-
-func New(dsn string, addr string, name string) *MaiLetter {
+func New(dsn string, addr *Addr) (*MaiLetter, error) {
 	m := new(MaiLetter)
-	m.dsn = dsn
-	m.from = [2]string{addr, name}
-	m.border = fmt.Sprintf("----------%s", border())
-	return m
-}
-
-func NewAttFrom(path string, name string) *Att {
-	a := new(Att)
-	a.path = path
-	if len(name) > 0 {
-		a.name = name
-	} else {
-		a.name = filepath.Base(path)
+	tmp, err := NewDsn(dsn)
+	if err != nil {
+		return nil, err
 	}
-	return a
+	m.dsn = tmp
+	m.client = nil
+	m.from = addr
+	m.border = border()
+
+	uname := new(syscall.Utsname)
+	err = syscall.Uname(uname)
+	for _,v := range uname.Nodename {
+		m.hostname += string(rune(v))
+	}
+
+	return m, nil
 }
 
-func NewAtt(name string, content []byte) *Att {
-	a := new(Att)
-	a.content = content
-	a.name = name
-	return a
-}
-
-func (m *MaiLetter) Authenticate(auth Auth) {
+func (m *MaiLetter) Authenticate(auth *Auth) {
 	m.auth = auth
 }
 
-func (m *MaiLetter) To(addr string, name string) {
-	to := [2]string{addr, name}
-	m.to = append(m.to, to)
+func (m *MaiLetter) To(addr *Addr) {
+	m.to = append(m.to, addr)
 }
 
-func (m *MaiLetter) Cc(addr string, name string) {
-	cc := [2]string{addr, name}
-	m.cc = append(m.cc, cc)
+func (m *MaiLetter) Cc(addr *Addr) {
+	m.cc = append(m.cc, addr)
 }
 
-func (m *MaiLetter) Bcc(addr string) {
+func (m *MaiLetter) Bcc(addr *Addr) {
 	m.bcc = append(m.bcc, addr)
 }
 
-func (m *MaiLetter) Subj(subj string) {
-	m.subj = subj
+func (m *MaiLetter) Subject(subject string) {
+	m.subject = subject
 }
 
 func (m *MaiLetter) Body(body string) {
 	m.body = body
 }
 
-func (m *MaiLetter) Attach(a *Att) {
-	m.atts = append(m.atts, a)
+func (m *MaiLetter) Load(path string) {
+
 }
 
-func (m *MaiLetter) Send() bool {
-	return true
+func (m *MaiLetter) Set(key string, val string) {
+	m.vars[key] = val
 }
 
-func (m *MaiLetter) Reset() bool {
-	return true
+func (m *MaiLetter) Attach(a *Attachment) {
+	m.attachments = append(m.attachments, a)
 }
 
-func (m *MaiLetter) Noop() bool {
-	return true
+func (m *MaiLetter) Send() error {
+	var err error
+	if !m.isConnected() {
+		return m.connect()
+	}
+
+	err = m.client.Hello(m.hostname)
+	if err != nil {
+		return err
+	}
+	err = m.client.Mail(m.from.Addr())
+	for _, addr := range m.to {
+		m.client.Rcpt(addr.Addr())
+	}
+	for _, addr := range m.cc {
+		m.client.Rcpt(addr.Addr())
+	}
+	for _, addr := range m.bcc {
+		m.client.Rcpt(addr.Addr())
+	}
+
+
+	return nil
+}
+
+func (m *MaiLetter) Reset() error {
+	err := m.client.Reset()
+	return err
+}
+
+func (m *MaiLetter) Noop() error {
+	err := m.client.Noop()
+	return err
+}
+
+func (m *MaiLetter) Quit() error {
+	err := m.client.Quit()
+	return err
+}
+
+func (m *MaiLetter) isConnected() bool {
+	if m.client != nil {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (m *MaiLetter) connect() error {
+	client, err := smtp.Dial(m.dsn.String())
+	if err != nil {
+		return err
+	}
+	m.client = client
+
+	return nil
 }
 
 func encode(s string) string {
-	should := false
-	for {
-
+	needsEnc := false
+	for _,v:=range s  {
+		if v>127 {
+			needsEnc = true
+			break
+		}
 	}
-	if !should {
+	if !needsEnc {
 		return s
 	}
-	return base64.StdEncoding.EncodeToString([]byte(s))
+	return fmt.Sprintf("=?UTF-8?%s?=", base64.StdEncoding.EncodeToString([]byte(s)))
 }
 
 func encodeBinary(content []byte) string {
@@ -129,9 +170,10 @@ func border() string {
 	l := len(s)
 	rand.Seed(time.Now().UnixNano())
 	sb := strings.Builder{}
+	sb.WriteString(strings.Repeat("-", 12))
 	for i := 0; i < length; i++ {
 		idx := rand.Intn(l - 1)
 		sb.WriteString(s[idx])
 	}
-	return strings.Repeat("-", 6) + sb.String()
+	return sb.String()
 }
