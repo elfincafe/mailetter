@@ -1,13 +1,12 @@
 package mailetter
 
 import (
-	"fmt"
 	"testing"
 )
 
 func TestNewDsn(t *testing.T) {
 	var dsn *Dsn
-	var err error
+	// var err error
 	var str string
 
 	str = "smtp://example.com"
@@ -25,13 +24,4 @@ func TestNewDsn(t *testing.T) {
 	if dsn.scheme != "smtp+tls" || dsn.host != "example.com" || dsn.port != 2525 {
 		t.Errorf("DSN: %s, Scheme:%s, Host:%s, Port:%d)", str, dsn.scheme, dsn.host, dsn.port)
 	}
-	// Error
-	println("***************************************")
-	dsn, err = NewDsn("smtp://")
-	fmt.Println(dsn)
-	fmt.Println(err)
-	// fmt.Println(dsn.scheme)
-	fmt.Println(dsn.Host())
-	// fmt.Println(dsn.port)
-	// fmt.Println(err)
 }

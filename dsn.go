@@ -31,9 +31,6 @@ func NewDsn(str string) (*Dsn, error) {
 		dsn.scheme = "smtps"
 	}
 	dsn.host = u.Hostname()
-	println("----------------->")
-	println(u.Hostname())
-	println("<-----------------")
 	if dsn.host == "" {
 		return nil, fmt.Errorf(`Invalid Hostname %s`, dsn.host)
 	}
