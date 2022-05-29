@@ -1,8 +1,8 @@
 package mailetter
 
 import (
-	"fmt"
 	"encoding/base64"
+	"fmt"
 	"math/rand"
 	"net/smtp"
 	"strings"
@@ -13,14 +13,14 @@ import (
 type MaiLetter struct {
 	dsn         *Dsn
 	client      *smtp.Client
-	hostname	string
+	hostname    string
 	to          []*Addr
 	cc          []*Addr
 	bcc         []*Addr
-	subject        string
+	subject     string
 	body        string
 	from        *Addr
-	vars		map[string]interface{}
+	vars        map[string]interface{}
 	attachments []*Attachment
 	auth        *Auth
 	border      string
@@ -39,14 +39,19 @@ func New(dsn string, addr *Addr) (*MaiLetter, error) {
 
 	uname := new(syscall.Utsname)
 	err = syscall.Uname(uname)
-	for _,v := range uname.Nodename {
-		m.hostname += string(rune(v))
+	if err != nil {
+		return nil, err
 	}
+	hostname := strings.Builder{}
+	for _, v := range uname.Nodename {
+		hostname.WriteString(string(rune(v)))
+	}
+	m.hostname = hostname.String()
 
 	return m, nil
 }
 
-func (m *MaiLetter) Authenticate(auth *Auth) {
+func (m *MaiLetter) Auth(auth *Auth) {
 	m.auth = auth
 }
 
@@ -103,7 +108,6 @@ func (m *MaiLetter) Send() error {
 		m.client.Rcpt(addr.Addr())
 	}
 
-
 	return nil
 }
 
@@ -131,7 +135,9 @@ func (m *MaiLetter) isConnected() bool {
 }
 
 func (m *MaiLetter) connect() error {
+	fmt.Println(m.dsn.String())
 	client, err := smtp.Dial(m.dsn.String())
+	fmt.Println(err)
 	if err != nil {
 		return err
 	}
@@ -142,8 +148,8 @@ func (m *MaiLetter) connect() error {
 
 func encode(s string) string {
 	needsEnc := false
-	for _,v:=range s  {
-		if v>127 {
+	for _, v := range s {
+		if v > 127 {
 			needsEnc = true
 			break
 		}
@@ -176,4 +182,8 @@ func border() string {
 		sb.WriteString(s[idx])
 	}
 	return sb.String()
+}
+
+func getResponse (r *bufio.Reader) {
+
 }

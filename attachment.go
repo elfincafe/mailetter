@@ -5,8 +5,8 @@ import (
 )
 
 type Attachment struct {
-	r		io.Reader
-	name    string
+	r    io.Reader
+	name string
 }
 
 func NewAttachment(r io.Reader, name string) (*Attachment, error) {
