@@ -1,7 +1,6 @@
 package mailetter
 
 import (
-	"fmt"
 	"net/smtp"
 	"strings"
 	"syscall"
@@ -17,93 +16,118 @@ type MaiLetter struct {
 }
 
 func New(dsn string, opts map[string]interface{}) (*MaiLetter, error) {
-	m := new(MaiLetter)
+	ml := new(MaiLetter)
 	tmp, err := NewDsn(dsn)
 	if err != nil {
 		return nil, err
 	}
-	m.dsn = tmp
-	m.client = nil
-	m.auth = nil
+	ml.dsn = tmp
+	ml.client = nil
+	ml.auth = nil
 
-	uname := new(syscall.Utsname)
-	err = syscall.Uname(uname)
-	if err != nil {
-		return nil, err
-	}
 	hostname := strings.Builder{}
 	if _, ok := opts["hostname"]; ok {
 		hostname.WriteString(opts["hostname"].(string))
+	} else {
+		uname := new(syscall.Utsname)
+		err = syscall.Uname(uname)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range uname.Nodename {
+			hostname.WriteString(string(rune(v)))
+		}
 	}
-	for _, v := range uname.Nodename {
-		hostname.WriteString(string(rune(v)))
-	}
-	m.hostname = hostname.String()
+	ml.hostname = hostname.String()
 
-	m.mail = NewMail()
+	ml.mail = NewMail()
 
-	return m, nil
+	return ml, nil
 }
 
-func (m *MaiLetter) Auth(auth *Auth) {
-	m.auth = auth
+func (ml *MaiLetter) Auth(auth *Auth) {
+	ml.auth = auth
 }
 
-func (m *MaiLetter) Mail() *Mail {
-	return m.mail
+func (ml *MaiLetter) Mail() *Mail {
+	return ml.mail
 }
 
-func (m *MaiLetter) Send() error {
+func (ml *MaiLetter) Send() error {
+
 	var err error
-	if !m.isConnected() {
-		m.connect()
+	if !ml.isConnected() {
+		ml.connect()
 	}
-
-	err = m.client.Hello(m.hostname)
+	// Hello
+	err = ml.client.Hello(ml.hostname)
 	if err != nil {
 		return err
 	}
-	m.mail.create()
-	return nil
-}
-
-func (m *MaiLetter) Reset() error {
-	err := m.client.Reset()
+	// Mail From
+	err = ml.client.Mail(ml.mail.from.addr)
 	if err != nil {
 		return err
 	}
-	m.mail = NewMail()
+	// Rcpt To
+	for _, addrs := range [][]*Addr{ml.mail.to, ml.mail.cc, ml.mail.bcc} {
+		for _, a := range addrs {
+			err = ml.client.Rcpt(a.addr)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	// Data
+	wc, err := ml.client.Data()
+	if err != nil {
+		return err
+	}
+	// fmt.Println(ml.mail.create())
+	_, err = wc.Write([]byte(ml.mail.create()))
+	if err != nil {
+		return err
+	}
+	wc.Close()
+
 	return nil
 }
 
-func (m *MaiLetter) Noop() error {
-	return m.client.Noop()
+func (ml *MaiLetter) Reset() error {
+	err := ml.client.Reset()
+	if err != nil {
+		return err
+	}
+	ml.mail = NewMail()
+	return nil
 }
 
-func (m *MaiLetter) Quit() error {
-	return m.client.Quit()
+func (ml *MaiLetter) Noop() error {
+	return ml.client.Noop()
 }
 
-func (m *MaiLetter) Close() error {
-	return m.client.Close()
+func (ml *MaiLetter) Quit() error {
+	return ml.client.Quit()
 }
 
-func (m *MaiLetter) isConnected() bool {
-	if m.client != nil {
+func (ml *MaiLetter) Close() error {
+	return ml.client.Close()
+}
+
+func (ml *MaiLetter) isConnected() bool {
+	if ml.client != nil {
 		return true
 	} else {
 		return false
 	}
 }
 
-func (m *MaiLetter) connect() error {
-	// fmt.Println(m.dsn.String())
-	client, err := smtp.Dial(m.dsn.String())
+func (ml *MaiLetter) connect() error {
+	client, err := smtp.Dial(ml.dsn.String())
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
-	m.client = client
+	ml.client = client
 
 	return nil
 }
