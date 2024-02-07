@@ -1,19 +1,19 @@
 version: "3.3"
 services:
   app:
-    image: mailetter-app:dev
+    image: tsukinoha.com/mailetter:dev
     container_name: MaiLetterApp
     build:
       context: .
       dockerfile: ./Dockerfile
-    hostname: mailetter.example.com
+    hostname: mailetter
     tty: true
     networks:
       - mailetter
     volumes:
       - type: bind
-        source: /var/opt/mailetter/src
-        target: /var/opt/src
+        source: ..
+        target: /usr/local/mailetter/src
     environment:
       - TZ=Asia/Tokyo
       - EDITOR=vi
