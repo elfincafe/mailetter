@@ -26,7 +26,7 @@ func (a *Addr) Name() string {
 
 func (a *Addr) String() string {
 	if len(a.name) > 0 {
-		return fmt.Sprintf("%s <%s>", encode(a.name), a.addr)
+		return fmt.Sprintf("%s <%s>", EncodeMimeString(a.name, true), a.addr)
 	} else {
 		return fmt.Sprintf("<%s>", a.addr)
 	}
