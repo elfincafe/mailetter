@@ -24,10 +24,14 @@ func (a *Addr) Name() string {
 	return a.name
 }
 
-func (a *Addr) String() string {
+func (a *Addr) Mime() string {
 	if len(a.name) > 0 {
 		return fmt.Sprintf("%s <%s>", EncodeMimeString(a.name, true), a.addr)
 	} else {
 		return fmt.Sprintf("<%s>", a.addr)
 	}
+}
+
+func (a *Addr) String() string {
+	return fmt.Sprintf("<%s>", a.addr)
 }

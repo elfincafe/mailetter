@@ -78,11 +78,11 @@ func TestName(t *testing.T) {
 	}
 }
 
-func TestAddrString(t *testing.T) {
+func TestAddrMime(t *testing.T) {
 	type tcase struct {
-		name   string
-		addr   string
-		expect string
+		name string
+		addr string
+		mime string
 	}
 	cases := []tcase{}
 	cases = append(cases, tcase{"John Smith", "john@example.com", "John Smith <john@example.com>"})
@@ -91,8 +91,27 @@ func TestAddrString(t *testing.T) {
 	cases = append(cases, tcase{"", "", "<>"})
 	for k, v := range cases {
 		a := NewAddr(v.addr, v.name)
+		if a.Mime() != v.mime {
+			t.Errorf("[Case%d] %s != %s", k, a.Mime(), v.mime)
+		}
+	}
+}
+
+func TestAddrString(t *testing.T) {
+	type tcase struct {
+		addr   string
+		expect string
+	}
+	cases := []tcase{}
+	cases = append(cases, tcase{"john@example.com", "<john@example.com>"})
+	cases = append(cases, tcase{"jane@example.com", "<jane@example.com>"})
+	cases = append(cases, tcase{"taro@example.com", "<taro@example.com>"})
+	cases = append(cases, tcase{"", "<>"})
+	for k, v := range cases {
+		a := NewAddr(v.addr, "")
 		if a.String() != v.expect {
 			t.Errorf("[Case%d] %s != %s", k, a.String(), v.expect)
 		}
 	}
+
 }
