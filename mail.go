@@ -1,7 +1,9 @@
 package mailetter
 
 import (
+	"bytes"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -18,24 +20,28 @@ type Mail struct {
 	to         []*Address
 	cc         []*Address
 	bcc        []*Address
-	subject    string
-	body       string
-	vars       map[string]string
+	subject    *template.Template
+	body       *template.Template
+	vars       map[string]any
 }
 
 func NewMail(from *Address) *Mail {
 	m := new(Mail)
-	m.headers = map[string]header{}
 	m.from = from
 	m.returnPath = from
 	m.replyTo = from
+	m.Reset()
+	return m
+}
+
+func (m *Mail) Reset() {
+	m.headers = map[string]header{}
 	m.to = []*Address{}
 	m.cc = []*Address{}
 	m.bcc = []*Address{}
-	m.subject = ""
-	m.body = ""
-	m.vars = map[string]string{}
-	return m
+	m.subject = nil
+	m.body = nil
+	m.vars = map[string]any{}
 }
 
 func (m *Mail) Header(key, val string) {
@@ -56,10 +62,6 @@ func (m *Mail) Bcc(addr *Address) {
 	m.bcc = append(m.bcc, addr)
 }
 
-func (m *Mail) From(addr *Address) {
-	m.from = addr
-}
-
 func (m *Mail) ReturnPath(addr *Address) {
 	m.returnPath = addr
 }
@@ -69,20 +71,21 @@ func (m *Mail) ReplyTo(addr *Address) {
 }
 
 func (m *Mail) Subject(subject string) {
-	m.subject = subject
+	m.subject = template.Must(template.New("Subject").Parse(subject))
 }
 
 func (m *Mail) Body(body string) {
-	m.body = body
+	m.body = template.Must(template.New("Body").Parse(body))
 }
 
-func (m *Mail) Set(key, val string) {
+func (m *Mail) Set(key string, val any) {
 	m.vars[key] = val
 }
 
 func (m *Mail) String() string {
 	sb := strings.Builder{}
 	line := strings.Builder{}
+	buf := bytes.NewBuffer(make([]byte, 10240))
 
 	// Content-Type
 	m.headers["content-type"] = header{"Content-Type", "text/plain; charset=UTF-8"}
@@ -125,7 +128,8 @@ func (m *Mail) String() string {
 	m.headers["cc"] = header{"Cc", strings.TrimRight(sb.String(), ","+white_space)}
 
 	// Subject
-	subject := EncodeMimeString(m.subject, true)
+	m.subject.Execute(buf, m.vars)
+	subject := EncodeMimeString(buf.String(), true)
 	line.Reset()
 	line.WriteString("Subject: ")
 	m.headers["subject"] = header{"Subject", subject}

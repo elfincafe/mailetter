@@ -9,19 +9,20 @@ import (
 )
 
 func TestNewAddress(t *testing.T) {
-	type tcase struct {
+	cases := []struct {
 		name    string
 		address string
 		typ     string
 		err     error
+	}{
+		{"John Smith", "john@example.com", "*mailetter.Address", nil},
+		{"Jane Smith", "jane@example.com", "*mailetter.Address", nil},
+		{"", "jane@example.com", "*mailetter.Address", nil},
+		{"", "janeatexample.com", "", errors.New("")},
 	}
-	cases := []tcase{}
-	cases = append(cases, tcase{"John Smith", "john@example.com", "*mailetter.Address", nil})
-	cases = append(cases, tcase{"Jane Smith", "jane@example.com", "*mailetter.Address", nil})
-	cases = append(cases, tcase{"", "jane@example.com", "*mailetter.Address", nil})
-	cases = append(cases, tcase{"", "janeatexample.com", "", errors.New("")})
+
 	for k, v := range cases {
-		a, e := NewAddress(v.address, v.name)
+		a := NewAddress(v.address, v.name)
 		s := strings.Builder{}
 		s.WriteString(fmt.Sprintf("[Case%d] ", k))
 		length := len(s.String())
