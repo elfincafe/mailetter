@@ -12,8 +12,8 @@ type Address struct {
 }
 
 func NewAddress(address, name string) (*Address, error) {
-	address = strings.Trim(address, " \r\n\t\v")
-	name = strings.Trim(name, " \r\n\t\v")
+	address = strings.Trim(address, white_space)
+	name = strings.Trim(name, white_space)
 	pa, err := mail.ParseAddress(fmt.Sprintf("%s <%s>", name, address))
 	if err != nil {
 		return nil, err

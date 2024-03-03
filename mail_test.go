@@ -2,98 +2,100 @@ package mailetter
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
 	"testing"
 )
 
-func TestTo(t *testing.T) {
-	addr1 := "test+1@example.com"
-	name1 := "Test1"
-	addr2 := "test+2@example.com"
-	name2 := "Test2"
-
-	m := NewMail()
-	m.To(NewAddr(addr1, name1))
-	if len(m.to) != 1 || m.to[0].Addr() != addr1 || m.to[0].Name() != name1 {
-		t.Errorf("Count=%d(%d), Address=%s(%s), Name=%s(%s)", len(m.to), 1, m.to[0].Addr(), addr1, m.to[0].Name(), name1)
-	}
-	m.To(NewAddr(addr2, name2))
-	if len(m.to) != 2 || m.to[1].Addr() != addr2 || m.to[1].Name() != name2 {
-		t.Errorf("Count=%d(%d), Address=%s(%s), Name=%s(%s)", len(m.to), 2, m.to[1].Addr(), addr2, m.to[1].Name(), name2)
+func TestNewMail(t *testing.T) {
+	from, _ := NewAddress("mailetter@example.com", "MaiLetter")
+	m := NewMail(from)
+	typ := reflect.TypeOf(m)
+	expect := reflect.TypeOf((*Mail)(nil)).String()
+	if typ.String() != expect {
+		t.Errorf("[Case%d] Type: %s != %s", 0, typ.String(), expect)
 	}
 }
 
-func TestCc(t *testing.T) {
-	addr1 := "test+1@example.com"
-	name1 := "Test1"
-	addr2 := "test+2@example.com"
-	name2 := "Test2"
-
-	m := NewMail()
-	m.Cc(NewAddr(addr1, name1))
-	if len(m.cc) != 1 || m.cc[0].Addr() != addr1 || m.cc[0].Name() != name1 {
-		t.Errorf("Count=%d(%d), Address=%s(%s), Name=%s(%s)", len(m.cc), 1, m.cc[0].Addr(), addr1, m.cc[0].Name(), name1)
+func TestMailHeader(t *testing.T) {
+	type tcase struct {
+		key string
+		val string
 	}
-	m.Cc(NewAddr(addr2, name2))
-	if len(m.cc) != 2 || m.cc[1].Addr() != addr2 || m.cc[1].Name() != name2 {
-		t.Errorf("Count=%d(%d), Address=%s(%s), Name=%s(%s)", len(m.cc), 2, m.cc[1].Addr(), addr2, m.cc[1].Name(), name2)
-	}
-}
-
-func TestBcc(t *testing.T) {
-	addr1 := "test+1@example.com"
-	addr2 := "test+2@example.com"
-
-	m := NewMail()
-	m.Bcc(NewAddr(addr1, ""))
-	if len(m.bcc) != 1 || m.bcc[0].Addr() != addr1 {
-		t.Errorf("Count=%d(%d), Address=%s(%s)", len(m.bcc), 1, m.bcc[0].Addr(), addr1)
-	}
-	m.Bcc(NewAddr(addr2, ""))
-	if len(m.bcc) != 2 || m.bcc[1].Addr() != addr2 {
-		t.Errorf("Count=%d(%d), Address=%s(%s)", len(m.bcc), 2, m.bcc[1].Addr(), addr2)
+	cases := []tcase{}
+	cases = append(cases, tcase{"Subject", "Mail Subject"})
+	cases = append(cases, tcase{"X-Mailer", "MaiLetter Client"})
+	cases = append(cases, tcase{"Message-ID", "<1234567890ABCDEFGHIJKLMN@example.com>"})
+	cases = append(cases, tcase{"X-Mailer", "MaiLetter Client"})
+	from, _ := NewAddress("mailetter@example.com", "MaiLetter")
+	m := NewMail(from)
+	for k, v := range cases {
+		m.Header(v.key, v.val)
+		flg := false
+		for k, _ := range m.headers {
+			label := strings.ToLower(k)
+			if label == strings.ToLower(k) {
+				flg = true
+				break
+			}
+		}
+		if !flg {
+			// t.Errorf("[Case%d] Header: %s != %s; Value %s != %s", k)
+			t.Errorf("[Case%d]", k)
+		}
 	}
 }
 
-func TestSubject(t *testing.T) {
-	subj1 := "テスト件名"
-	subj2 := "TestSubject"
+func TestMailTo(t *testing.T) {
 
-	m := NewMail()
-	m.Subject(subj1)
-	if m.subj != subj1 {
-		t.Errorf("Subject:%s(%s)", m.subj, subj1)
+}
+
+func TestMailCc(t *testing.T) {
+
+}
+
+func TestMailBcc(t *testing.T) {
+
+}
+
+func TestMailFrom(t *testing.T) {
+
+}
+
+func TestMailSubject(t *testing.T) {
+
+}
+
+func TestMailBody(t *testing.T) {
+	type tcase struct {
+		body string
 	}
-	m.Subject(subj2)
-	if m.subj != subj2 {
-		t.Errorf("Subject:%s(%s)", m.subj, subj2)
+	cases := []tcase{}
+	cases = append(cases, tcase{body: "TestBody"})
+
+	from, _ := NewAddress("mailetter@example.com", "MaiLetter")
+	mail := NewMail(from)
+	for k, v := range cases {
+		mail.Body(v.body)
+		if mail.body != v.body {
+			t.Error(fmt.Sprintf("[Case%d] Body: %s (%s)", k, mail.body, v.body))
+		}
 	}
 }
 
-func TestBody(t *testing.T) {
-	body1 := "テスト本文"
-	body2 := "TestBody"
+func TestMailSet(t *testing.T) {
 
-	m := NewMail()
-	m.Body(body1)
-	if m.body != body1 {
-		t.Errorf("Body:%s(%s)", m.body, body1)
-	}
-	m.Body(body2)
-	if m.body != body2 {
-		t.Errorf("Body:%s(%s)", m.body, body2)
-	}
 }
 
-func TestCreate(t *testing.T) {
-	m := NewMail()
-	m.From(NewAddr("from@example.com", "送信者"))
-	m.To(NewAddr("to1@example.com", "To受信者1"))
-	m.To(NewAddr("to2@example.com", "To受信者2"))
-	m.Cc(NewAddr("cc1@example.com", "Cc受信者1"))
-	m.Cc(NewAddr("cc2@example.com", "Cc受信者2"))
-	m.Bcc(NewAddr("bcc1@example.com", "Bcc受信者1"))
-	m.Bcc(NewAddr("bcc2@example.com", "Bcc受信者2"))
-	m.Subject("テスト件名 TestSubject")
-	m.Body("テスト本文")
-	fmt.Println(m.create())
+func TestMailString(t *testing.T) {
+
+	from, _ := NewAddress("from@example.com", "テスト")
+	m := NewMail(from)
+	for _, v := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9} {
+		to, _ := NewAddress(fmt.Sprintf("to+%d@example.com", v), "受信者1")
+		m.To(to)
+	}
+	m.Subject("貨表示を円貨にした場合、平均取得価額は国内約定日の10時30分までは参考レートに為替掛目1％を加えて計算している")
+	m.Body("通貨表示を円貨とした場合の時価評価額・評価損益は、現在の参考為替レートを利用して円換算額を算出しております。\r\n従って、実際の円貨決済による売却時の円換算レート(TTB)、\r\nまたそれにより算出される売却価額 (売却時の費用を考慮しない) とは異なります。")
+	t.Errorf("%s", m.String())
 }

@@ -6,6 +6,13 @@ import (
 	"syscall"
 )
 
+const (
+	br          = "\r\n"
+	white_space = " \r\n\t\v\b"
+	should_br   = 78
+	must_br     = 998
+)
+
 type MaiLetter struct {
 	dsn      *Dsn
 	client   *smtp.Client
@@ -40,7 +47,7 @@ func New(dsn string, opts map[string]interface{}) (*MaiLetter, error) {
 	}
 	ml.hostname = hostname.String()
 
-	ml.mail = NewMail()
+	// ml.mail = NewMail()
 
 	return ml, nil
 }
@@ -65,14 +72,14 @@ func (ml *MaiLetter) Send() error {
 		return err
 	}
 	// Mail From
-	err = ml.client.Mail(ml.mail.from.addr)
+	err = ml.client.Mail(ml.mail.from.address)
 	if err != nil {
 		return err
 	}
 	// Rcpt To
-	for _, addrs := range [][]*Addr{ml.mail.to, ml.mail.cc, ml.mail.bcc} {
+	for _, addrs := range [][]*Address{ml.mail.to, ml.mail.cc, ml.mail.bcc} {
 		for _, a := range addrs {
-			err = ml.client.Rcpt(a.addr)
+			err = ml.client.Rcpt(a.address)
 			if err != nil {
 				return err
 			}
@@ -84,7 +91,7 @@ func (ml *MaiLetter) Send() error {
 		return err
 	}
 	// fmt.Println(ml.mail.create())
-	_, err = wc.Write([]byte(ml.mail.create()))
+	_, err = wc.Write([]byte(ml.mail.String()))
 	if err != nil {
 		return err
 	}
@@ -98,7 +105,7 @@ func (ml *MaiLetter) Reset() error {
 	if err != nil {
 		return err
 	}
-	ml.mail = NewMail()
+	// ml.mail = NewMail()
 	return nil
 }
 
@@ -123,7 +130,7 @@ func (ml *MaiLetter) isConnected() bool {
 }
 
 func (ml *MaiLetter) connect() error {
-	client, err := smtp.Dial(ml.dsn.String())
+	client, err := smtp.Dial(ml.dsn.Socket())
 	if err != nil {
 		return err
 	}

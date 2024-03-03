@@ -1,11 +1,11 @@
-version: "3.3"
+version: "3.9"
 services:
   app:
-    image: tsukinoha.com/mailetter:dev
+    image: localhost/mailetter:dev
     container_name: MaiLetterApp
     build:
-      context: .
-      dockerfile: ./Dockerfile
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
     hostname: mailetter
     tty: true
     networks:
