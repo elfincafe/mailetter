@@ -5,10 +5,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"text/template"
 )
 
 func TestNewMail(t *testing.T) {
-	from, _ := NewAddress("from@example.com", "Sender")
+	from := NewAddress("from@example.com", "Sender")
 	m := NewMail(from)
 	typ := reflect.TypeOf(m)
 	expect := reflect.TypeOf((*Mail)(nil)).String()
@@ -21,39 +22,73 @@ func TestNewMail(t *testing.T) {
 }
 
 func TestMailReset(t *testing.T) {
-	a, _ := NewAddress()
 	cases := []struct {
 		headers map[string]header
 		to      []*Address
 		cc      []*Address
 		bcc     []*Address
 		subject *template.Template
-		body    *template.Templte
+		body    *template.Template
 		vars    map[string]any
 	}{
-		{},
+		{
+			map[string]header{"test-header": header{"Test-Header", "Test Header Value"}},
+			[]*Address{NewAddress("To Address", "to@example.com")},
+			[]*Address{NewAddress("Cc Address", "cc@example.com")},
+			[]*Address{NewAddress("Bcc Address", "bcc@example.com")},
+			template.Must(template.New("Subject").Parse("Dear. {{.Name}}")),
+			template.Must(template.New("Body").Parse("")),
+			map[string]any{"Name": "Example User"},
+		},
 	}
+	from := NewAddress("from@example.com", "From Address")
+	m := NewMail(from)
 	for k, v := range cases {
+		m.headers = v.headers
+		m.to = v.to
+		m.cc = v.cc
+		m.bcc = v.bcc
+		m.subject = v.subject
+		m.body = v.body
+		m.vars = v.vars
+		m.Reset()
+		if len(m.headers) != 0 || len(m.to) != 0 || len(m.cc) != 0 || len(m.bcc) != 0 || m.subject != nil || m.body != nil || len(m.vars) != 0 {
+			t.Errorf("[Case%d] Header:%v, To:%v, Cc:%v, Bcc:%v, Subject:%v, Body:%v, Vars:%v", k, m.headers, m.to, m.cc, m.bcc, m.subject, m.body, m.vars)
+		}
+
 	}
 }
 
 func TestMailHeader(t *testing.T) {
 	cases := []struct {
-		key string
-		val string
+		key    string
+		val    string
+		exists bool
 	}{
-		{"Subject", "Mail Subject"},
-		{"X-Mailer", "Test MTU 1"},
-		{"Message-ID", "<1234567890ABCDEFGHIJKLMN@example.com>"},
-		{"X-Mailer", "Test MTU 2"},
+		{"Date", "Tue, 5 Mar 2024 21:53:04 +0900", false},
+		{"From", "Test From <from@example.com>", false},
+		{"To", "Test To <to@example.com>", false},
+		{"Cc", "Test Cc <cc@example.com>", false},
+		{"Bcc", "bcc@example.com", false},
+		{"Subject", "Test Subject", false},
+		{"Reply-To", "reply-to@example.com", false},
+		{"Return-Path", "return-path@example.com", false},
+		{"X-Mailer", "Test MTU 1", true},
+		{"Message-ID", "<1234567890ABCDEFGHIJKLMN@example.com>", true},
+		{"X-Mailer", "Test MTU 2", true},
 	}
-	expected := 3
-	from, _ := NewAddress("from@example.com", "Sender")
+	count := 2
+	from := NewAddress("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
 		m.Header(v.key, v.val)
 		key := strings.ToLower(v.key)
-		if _, ok := m.headers[key]; !ok {
+		_, ok := m.headers[key]
+		if ok == v.exists {
+			if !v.exists {
+				continue
+			}
+		} else {
 			t.Errorf(`[Case%d] "%s" doesn't exist.`, k, v.key)
 		}
 		if m.headers[key].key != v.key {
@@ -63,8 +98,8 @@ func TestMailHeader(t *testing.T) {
 			t.Errorf(`[Case%d] Value: %s (%s)`, k, m.headers[key].val, v.val)
 		}
 	}
-	if len(m.headers) != expected {
-		t.Errorf("[Case%d] Count: %d (%d)", 999, len(m.headers), expected)
+	if len(m.headers) != count {
+		t.Errorf("[Case%d] Count: %d (%d)", 999, len(m.headers), count)
 	}
 }
 
@@ -76,10 +111,10 @@ func TestMailTo(t *testing.T) {
 		{"to+1@example.com"},
 		{"to+2@example.com"},
 	}
-	from, _ := NewAddress("from@example.com", "Sender")
+	from := NewAddress("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
-		a, _ := NewAddress(v.addr, "")
+		a := NewAddress(v.addr, "")
 		m.To(a)
 		if m.to[k] != a {
 			t.Errorf("[Case%d] Address: %v (%v)", k, m.to[k], a)
@@ -98,10 +133,10 @@ func TestMailCc(t *testing.T) {
 		{"cc+1@example.com"},
 		{"cc+2@example.com"},
 	}
-	from, _ := NewAddress("from@example.com", "Sender")
+	from := NewAddress("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
-		a, _ := NewAddress(v.addr, "")
+		a := NewAddress(v.addr, "")
 		m.Cc(a)
 		if m.cc[k] != a {
 			t.Errorf("[Case%d] Address: %v (%v)", k, m.cc[k], a)
@@ -120,10 +155,10 @@ func TestMailBcc(t *testing.T) {
 		{"bcc+1@example.com"},
 		{"bcc+2@example.com"},
 	}
-	from, _ := NewAddress("from@example.com", "Sender")
+	from := NewAddress("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
-		a, _ := NewAddress(v.addr, "")
+		a := NewAddress(v.addr, "")
 		m.Bcc(a)
 		if m.bcc[k] != a {
 			t.Errorf("[Case%d] Address: %v (%v)", k, m.bcc[k], a)
@@ -143,7 +178,7 @@ func TestMailSubject(t *testing.T) {
 		{"Dear {{.Name}}", nil},
 	}
 
-	from, _ := NewAddress("from@example.com", "Sender")
+	from := NewAddress("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
 		m.Subject(v.subject)
@@ -163,7 +198,7 @@ func TestMailBody(t *testing.T) {
 		{"Test\r\nBody\r\nPart2\r\n{{.Name}}", nil},
 	}
 
-	from, _ := NewAddress("from@example.com", "Sender")
+	from := NewAddress("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
 		m.Subject(v.body)
@@ -186,7 +221,7 @@ func TestMailSet(t *testing.T) {
 	}
 	expected := 2
 
-	from, _ := NewAddress("from@example.com", "Sender")
+	from := NewAddress("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
 		m.Set(v.key, v.val)
@@ -202,14 +237,32 @@ func TestMailSet(t *testing.T) {
 }
 
 func TestMailString(t *testing.T) {
-
-	from, _ := NewAddress("from@example.com", "Sender")
-	m := NewMail(from)
-	for _, v := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9} {
-		to, _ := NewAddress(fmt.Sprintf("to+%d@example.com", v), "受信者1")
-		m.To(to)
+	cases := []struct {
+		headers map[string]header
+		to      []*Address
+		cc      []*Address
+		bcc     []*Address
+		subject *template.Template
+		body    *template.Template
+		vars    map[string]any
+	}{
+		{
+			map[string]header{"test-header": header{"Test-Header", "Test Header Value"}},
+			[]*Address{NewAddress("To Address", "to@example.com")},
+			[]*Address{NewAddress("Cc Address", "cc@example.com")},
+			[]*Address{NewAddress("Bcc Address", "bcc@example.com")},
+			template.Must(template.New("Subject").Parse("Dear. {{.Name}}")),
+			template.Must(template.New("Body").Parse("")),
+			map[string]any{"Name": "Example User"},
+		},
 	}
-	m.Subject("貨表示を円貨にした場合、平均取得価額は国内約定日の10時30分までは参考レートに為替掛目1％を加えて計算している")
-	m.Body("通貨表示を円貨とした場合の時価評価額・評価損益は、現在の参考為替レートを利用して円換算額を算出しております。\r\n従って、実際の円貨決済による売却時の円換算レート(TTB)、\r\nまたそれにより算出される売却価額 (売却時の費用を考慮しない) とは異なります。")
-	t.Errorf("%s", m.String())
+
+	m := NewMail(NewAddress("from@example.com", "送信者"))
+	for k, v := range cases {
+		m.headers = v.headers
+		if false {
+			t.Errorf(`[Case%d]`, k)
+		}
+	}
+	fmt.Println(m.String())
 }

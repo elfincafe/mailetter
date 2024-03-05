@@ -2,6 +2,7 @@ package mailetter
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"text/template"
 	"time"
@@ -47,7 +48,23 @@ func (m *Mail) Reset() {
 func (m *Mail) Header(key, val string) {
 	key = strings.Trim(key, white_space)
 	val = strings.Trim(val, white_space)
-	m.headers[strings.ToLower(key)] = header{key: key, val: val}
+	excepts := map[string]bool{
+		"content-type": true,
+		"date":         true,
+		"from":         true,
+		"reply-to":     true,
+		"return-path":  true,
+		"to":           true,
+		"cc":           true,
+		"bcc":          true,
+		"subject":      true,
+	}
+	lowerKey := strings.ToLower(key)
+	if _, ok := excepts[lowerKey]; ok {
+		return
+	}
+
+	m.headers[lowerKey] = header{key: key, val: val}
 }
 
 func (m *Mail) To(addr *Address) {
@@ -83,49 +100,71 @@ func (m *Mail) Set(key string, val any) {
 }
 
 func (m *Mail) String() string {
-	sb := strings.Builder{}
+	// sb := strings.Builder{}
 	line := strings.Builder{}
 	buf := bytes.NewBuffer(make([]byte, 10240))
 
-	// Content-Type
-	m.headers["content-type"] = header{"Content-Type", "text/plain; charset=UTF-8"}
-	// Date
-	m.headers["date"] = header{"Date", time.Now().Format(time.RFC1123Z)}
-	// From
-	m.headers["from"] = header{"From", m.from.String()}
-	// To
-	line.Reset()
-	line.WriteString("To:")
-	for k, v := range m.to {
-		angle := v.String()
-		if line.Len()+len(angle)+2 > should_br {
-			sb.WriteString(line.String() + br)
-			line.Reset()
-			line.WriteString(" ")
-		}
-		line.WriteString(" " + angle + ",")
-		if len(m.to) >= k-1 {
-			sb.WriteString(line.String())
-		}
+	// Headers
+	for _, v := range m.headers {
+		line.WriteString(fmt.Sprintf(`%s: %s\r\n`, v.key, v.val))
 	}
-	m.headers["to"] = header{"To", strings.TrimRight(sb.String(), ","+white_space)}
+
+	// Content-Type
+	line.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+	// Date
+	line.WriteString(fmt.Sprintf(`Date: %s\r\n`, time.Now().Format(time.RFC1123Z)))
+	// From
+	line.WriteString(fmt.Sprintf(`From: %s\r\n`, m.from.String()))
+	// To
+	to := strings.Builder{}
+	for _, v := range m.to {
+		to.WriteString(fmt.Sprintf(`%s, `, v.String()))
+	}
+	if to.Len() > 0 {
+		line.WriteString(fmt.Sprintf(`To: %s\r\n`, strings.Trim(to.String(), ","+white_space)))
+	}
+	// line.WriteString("To:")
+	// for k, v := range m.to {
+	// 	angle := v.String()
+	// 	if line.Len()+len(angle)+2 > should_br {
+	// 		sb.WriteString(line.String() + br)
+	// 		line.Reset()
+	// 		line.WriteString(" ")
+	// 	}
+	// 	line.WriteString(" " + angle + ",")
+	// 	if len(m.to) >= k-1 {
+	// 		sb.WriteString(line.String())
+	// 	}
+	// }
+	// if _, ok := m.headers["to"]; ok {
+	// 	m.headers["to"] = header{"To", strings.TrimRight(sb.String(), ","+white_space)}
+	// }
 
 	// Cc
-	line.Reset()
-	line.WriteString("Cc:")
-	for k, v := range m.to {
-		angle := v.String()
-		if line.Len()+len(angle)+2 > should_br {
-			sb.WriteString(line.String() + br)
-			line.Reset()
-			line.WriteString(" ")
-		}
-		line.WriteString(" " + angle + ",")
-		if len(m.to) >= k-1 {
-			sb.WriteString(line.String())
-		}
+	cc := strings.Builder{}
+	for _, v := range m.cc {
+		cc.WriteString(fmt.Sprintf(`%s, `, v.String()))
 	}
-	m.headers["cc"] = header{"Cc", strings.TrimRight(sb.String(), ","+white_space)}
+	if cc.Len() > 0 {
+		line.WriteString(fmt.Sprintf(`To: %s\r\n`, strings.Trim(cc.String(), ","+white_space)))
+	}
+	// line.Reset()
+	// line.WriteString("Cc:")
+	// for k, v := range m.to {
+	// 	angle := v.String()
+	// 	if line.Len()+len(angle)+2 > should_br {
+	// 		sb.WriteString(line.String() + br)
+	// 		line.Reset()
+	// 		line.WriteString(" ")
+	// 	}
+	// 	line.WriteString(" " + angle + ",")
+	// 	if len(m.to) >= k-1 {
+	// 		sb.WriteString(line.String())
+	// 	}
+	// }
+	// if _, ok := m.headers["cc"]; ok {
+	// 	m.headers["cc"] = header{"Cc", strings.TrimRight(sb.String(), ","+white_space)}
+	// }
 
 	// Subject
 	m.subject.Execute(buf, m.vars)
@@ -134,6 +173,7 @@ func (m *Mail) String() string {
 	line.WriteString("Subject: ")
 	m.headers["subject"] = header{"Subject", subject}
 
+	fmt.Println(line.String())
 	// Body
 	// body := bytes.NewBuffer()
 	// content.WriteString(m.body)

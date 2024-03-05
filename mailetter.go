@@ -72,14 +72,14 @@ func (ml *MaiLetter) Send() error {
 		return err
 	}
 	// Mail From
-	err = ml.client.Mail(ml.mail.from.address)
+	err = ml.client.Mail(ml.mail.from.addr)
 	if err != nil {
 		return err
 	}
 	// Rcpt To
 	for _, addrs := range [][]*Address{ml.mail.to, ml.mail.cc, ml.mail.bcc} {
 		for _, a := range addrs {
-			err = ml.client.Rcpt(a.address)
+			err = ml.client.Rcpt(a.addr)
 			if err != nil {
 				return err
 			}
