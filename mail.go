@@ -48,6 +48,10 @@ func (m *Mail) Reset() {
 func (m *Mail) Header(key, val string) {
 	key = strings.Trim(key, white_space)
 	val = strings.Trim(val, white_space)
+	for old, new := range map[string]string{"\r": "", "\n": ""} {
+		key = strings.ReplaceAll(key, old, new)
+		val = strings.ReplaceAll(val, old, new)
+	}
 	excepts := map[string]bool{
 		"content-type": true,
 		"date":         true,
@@ -88,10 +92,16 @@ func (m *Mail) ReplyTo(addr *Address) {
 }
 
 func (m *Mail) Subject(subject string) {
+	for old, new := range map[string]string{"\r": "", "\n": ""} {
+		subject = strings.ReplaceAll(subject, old, new)
+	}
 	m.subject = template.Must(template.New("Subject").Parse(subject))
 }
 
 func (m *Mail) Body(body string) {
+	body = strings.ReplaceAll(body, "\r\n", "\n")
+	body = strings.ReplaceAll(body, "\r", "\n")
+	body = strings.ReplaceAll(body, "\n", "\r\n")
 	m.body = template.Must(template.New("Body").Parse(body))
 }
 
@@ -100,84 +110,60 @@ func (m *Mail) Set(key string, val any) {
 }
 
 func (m *Mail) String() string {
-	// sb := strings.Builder{}
+	sb := strings.Builder{}
 	line := strings.Builder{}
-	buf := bytes.NewBuffer(make([]byte, 10240))
+	// buf := bytes.NewBuffer(make([]byte, 10240))
 
 	// Headers
+	line.Reset()
 	for _, v := range m.headers {
-		line.WriteString(fmt.Sprintf(`%s: %s\r\n`, v.key, v.val))
+		line.WriteString(fmt.Sprintf("%s: %s\r\n", v.key, EncodeMimeString(v.val, true)))
+		sb.WriteString(line.String())
 	}
 
 	// Content-Type
-	line.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+	sb.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	// Date
-	line.WriteString(fmt.Sprintf(`Date: %s\r\n`, time.Now().Format(time.RFC1123Z)))
+	sb.WriteString(fmt.Sprintf("Date: %s\r\n", time.Now().Format(time.RFC1123Z)))
 	// From
-	line.WriteString(fmt.Sprintf(`From: %s\r\n`, m.from.String()))
-	// To
-	to := strings.Builder{}
-	for _, v := range m.to {
-		to.WriteString(fmt.Sprintf(`%s, `, v.String()))
+	sb.WriteString(fmt.Sprintf("From: %s\r\n", EncodeMimeString(m.from.String(), true)))
+	// To, Cc
+	rcpts := map[string][]*Address{"To": m.to, "Cc": m.cc}
+	for label, addrs := range rcpts {
+		line.Reset()
+		line.WriteString(label)
+		line.WriteString(":")
+		for k, v := range addrs {
+			line.WriteString(" ")
+			line.WriteString(v.String())
+			if len(addrs) > k+1 {
+				line.WriteString(",")
+			}
+		}
+		sb.WriteString(line.String())
+		sb.WriteString("\r\n")
 	}
-	if to.Len() > 0 {
-		line.WriteString(fmt.Sprintf(`To: %s\r\n`, strings.Trim(to.String(), ","+white_space)))
-	}
-	// line.WriteString("To:")
-	// for k, v := range m.to {
-	// 	angle := v.String()
-	// 	if line.Len()+len(angle)+2 > should_br {
-	// 		sb.WriteString(line.String() + br)
-	// 		line.Reset()
-	// 		line.WriteString(" ")
-	// 	}
-	// 	line.WriteString(" " + angle + ",")
-	// 	if len(m.to) >= k-1 {
-	// 		sb.WriteString(line.String())
-	// 	}
-	// }
-	// if _, ok := m.headers["to"]; ok {
-	// 	m.headers["to"] = header{"To", strings.TrimRight(sb.String(), ","+white_space)}
-	// }
-
-	// Cc
-	cc := strings.Builder{}
-	for _, v := range m.cc {
-		cc.WriteString(fmt.Sprintf(`%s, `, v.String()))
-	}
-	if cc.Len() > 0 {
-		line.WriteString(fmt.Sprintf(`To: %s\r\n`, strings.Trim(cc.String(), ","+white_space)))
-	}
-	// line.Reset()
-	// line.WriteString("Cc:")
-	// for k, v := range m.to {
-	// 	angle := v.String()
-	// 	if line.Len()+len(angle)+2 > should_br {
-	// 		sb.WriteString(line.String() + br)
-	// 		line.Reset()
-	// 		line.WriteString(" ")
-	// 	}
-	// 	line.WriteString(" " + angle + ",")
-	// 	if len(m.to) >= k-1 {
-	// 		sb.WriteString(line.String())
-	// 	}
-	// }
-	// if _, ok := m.headers["cc"]; ok {
-	// 	m.headers["cc"] = header{"Cc", strings.TrimRight(sb.String(), ","+white_space)}
-	// }
 
 	// Subject
+	if m.subject == nil {
+		m.Subject("")
+	}
+	buf := bytes.NewBuffer([]byte{})
 	m.subject.Execute(buf, m.vars)
 	subject := EncodeMimeString(buf.String(), true)
 	line.Reset()
 	line.WriteString("Subject: ")
-	m.headers["subject"] = header{"Subject", subject}
+	line.WriteString(EncodeMimeString(subject, true))
+	line.WriteString("\r\n")
+	sb.WriteString(line.String())
 
-	fmt.Println(line.String())
 	// Body
-	// body := bytes.NewBuffer()
-	// content.WriteString(m.body)
+	buf.Reset()
+	m.body.Execute(buf, m.vars)
+	line.Reset()
+	line.WriteString("\r\n")
+	line.WriteString(buf.String())
+	sb.WriteString(line.String())
 
-	// return content.String()
-	return ""
+	return sb.String()
 }

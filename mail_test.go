@@ -242,27 +242,44 @@ func TestMailString(t *testing.T) {
 		to      []*Address
 		cc      []*Address
 		bcc     []*Address
-		subject *template.Template
-		body    *template.Template
+		subject string
+		body    string
 		vars    map[string]any
 	}{
 		{
 			map[string]header{"test-header": header{"Test-Header", "Test Header Value"}},
-			[]*Address{NewAddress("To Address", "to@example.com")},
-			[]*Address{NewAddress("Cc Address", "cc@example.com")},
-			[]*Address{NewAddress("Bcc Address", "bcc@example.com")},
-			template.Must(template.New("Subject").Parse("Dear. {{.Name}}")),
-			template.Must(template.New("Body").Parse("")),
-			map[string]any{"Name": "Example User"},
+			[]*Address{NewAddress("to0@example.com", "受信者To0"), NewAddress("to1@example.com", "受信者To1")},
+			[]*Address{NewAddress("cc0@example.com", "受信者Cc0"), NewAddress("cc1@example.com", "受信者Cc1"), NewAddress("cc2@example.com", "受信者Cc2")},
+			[]*Address{NewAddress("bcc0@example.com", "受信者Bcc0")},
+			"[{{.ServiceName}}] {{.Name}}様 新商品のお知らせ",
+			"{{.Name}}様\nいつもご利用ありがとうございます。\n{{.ServiceName}}カスタマーサポートでございます。",
+			map[string]any{"ServiceName": "ECサービス", "Name": "ECサービスユーザー"},
 		},
 	}
 
 	m := NewMail(NewAddress("from@example.com", "送信者"))
-	for k, v := range cases {
-		m.headers = v.headers
+	for i, c := range cases {
+		for _, v := range c.headers {
+			m.Header(v.key, v.val)
+		}
+		for _, v := range c.to {
+			m.To(v)
+		}
+		for _, v := range c.cc {
+			m.Cc(v)
+		}
+		for _, v := range c.bcc {
+			m.Bcc(v)
+		}
+		for k, v := range c.vars {
+			m.Set(k, v)
+		}
+		m.Subject(c.subject)
+		m.Body(c.body)
+		fmt.Println(m.String())
+
 		if false {
-			t.Errorf(`[Case%d]`, k)
+			t.Errorf(`[Case%d]`, i)
 		}
 	}
-	fmt.Println(m.String())
 }
