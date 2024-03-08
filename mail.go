@@ -134,14 +134,18 @@ func (m *Mail) String() string {
 		line.WriteString(label)
 		line.WriteString(":")
 		for k, v := range addrs {
-			line.WriteString(" ")
+			if k == 0 {
+				line.WriteString(" ")
+			} else {
+				line.WriteString("    ")
+			}
 			line.WriteString(v.String())
 			if len(addrs) > k+1 {
 				line.WriteString(",")
 			}
+			line.WriteString("\r\n")
 		}
 		sb.WriteString(line.String())
-		sb.WriteString("\r\n")
 	}
 
 	// Subject

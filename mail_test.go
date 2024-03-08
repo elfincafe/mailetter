@@ -169,6 +169,48 @@ func TestMailBcc(t *testing.T) {
 	}
 }
 
+func TestMailReplyTo(t *testing.T) {
+	cases := []struct {
+		from  *Address
+		reply *Address
+	}{
+		{NewAddress("from@example.com", ""), NewAddress("reply-to@example.com", "")},
+	}
+
+	for k, v := range cases {
+		m := NewMail(v.from)
+		if m.replyTo.addr != v.from.addr {
+			t.Errorf(`[Case%d] InitAddr: %s (%s)`, k, m.replyTo.addr, v.from.addr)
+			continue
+		}
+		m.ReplyTo(v.reply)
+		if m.replyTo.addr != v.reply.addr {
+			t.Errorf(`[Case%d] InitAddr: %s (%s)`, k, m.replyTo.addr, v.reply.addr)
+		}
+	}
+}
+
+func TestMailReturnPath(t *testing.T) {
+	cases := []struct {
+		from *Address
+		ret  *Address
+	}{
+		{NewAddress("from@example.com", ""), NewAddress("return-path@example.com", "")},
+	}
+
+	for k, v := range cases {
+		m := NewMail(v.from)
+		if m.replyTo.addr != v.from.addr {
+			t.Errorf(`[Case%d] InitAddr: %s (%s)`, k, m.replyTo.addr, v.from.addr)
+			continue
+		}
+		m.ReplyTo(v.ret)
+		if m.replyTo.addr != v.ret.addr {
+			t.Errorf(`[Case%d] InitAddr: %s (%s)`, k, m.replyTo.addr, v.ret.addr)
+		}
+	}
+}
+
 func TestMailSubject(t *testing.T) {
 	cases := []struct {
 		subject string
@@ -247,7 +289,7 @@ func TestMailString(t *testing.T) {
 		vars    map[string]any
 	}{
 		{
-			map[string]header{"test-header": header{"Test-Header", "Test Header Value"}},
+			map[string]header{"test-header": {"Test-Header", "Test Header Value"}},
 			[]*Address{NewAddress("to0@example.com", "受信者To0"), NewAddress("to1@example.com", "受信者To1")},
 			[]*Address{NewAddress("cc0@example.com", "受信者Cc0"), NewAddress("cc1@example.com", "受信者Cc1"), NewAddress("cc2@example.com", "受信者Cc2")},
 			[]*Address{NewAddress("bcc0@example.com", "受信者Bcc0")},
