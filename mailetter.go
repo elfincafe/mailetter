@@ -2,8 +2,6 @@ package mailetter
 
 import (
 	"net/smtp"
-	"strings"
-	"syscall"
 )
 
 const (
@@ -17,67 +15,39 @@ type MaiLetter struct {
 	dsn      *Dsn
 	client   *smtp.Client
 	hostname string
-	vars     map[string]interface{}
-	auth     *Auth
-	mail     *Mail
 }
 
-func New(dsn string, opts map[string]interface{}) (*MaiLetter, error) {
+func New(dsn *Dsn) *MaiLetter {
 	ml := new(MaiLetter)
-	tmp, err := NewDsn(dsn)
-	if err != nil {
-		return nil, err
-	}
-	ml.dsn = tmp
+	ml.dsn = dsn
 	ml.client = nil
-	ml.auth = nil
-
-	hostname := strings.Builder{}
-	if _, ok := opts["hostname"]; ok {
-		hostname.WriteString(opts["hostname"].(string))
-	} else {
-		uname := new(syscall.Utsname)
-		err = syscall.Uname(uname)
-		if err != nil {
-			return nil, err
-		}
-		for _, v := range uname.Nodename {
-			hostname.WriteString(string(rune(v)))
-		}
-	}
-	ml.hostname = hostname.String()
-
-	// ml.mail = NewMail()
-
-	return ml, nil
+	ml.hostname = ""
+	return ml
 }
 
-func (ml *MaiLetter) Auth(auth *Auth) {
-	ml.auth = auth
+func (ml *MaiLetter) Hostname(hostname string) {
+	ml.hostname = hostname
 }
 
-func (ml *MaiLetter) Mail() *Mail {
-	return ml.mail
-}
-
-func (ml *MaiLetter) Send() error {
+func (ml *MaiLetter) Send(m *Mail) error {
 
 	var err error
-	if !ml.isConnected() {
-		ml.connect()
+	if err = ml.connect(); err != nil {
+		return err
 	}
+
 	// Hello
 	err = ml.client.Hello(ml.hostname)
 	if err != nil {
 		return err
 	}
 	// Mail From
-	err = ml.client.Mail(ml.mail.from.addr)
+	err = ml.client.Mail(m.from.addr)
 	if err != nil {
 		return err
 	}
 	// Rcpt To
-	for _, addrs := range [][]*Address{ml.mail.to, ml.mail.cc, ml.mail.bcc} {
+	for _, addrs := range [][]*Address{m.to, m.cc, m.bcc} {
 		for _, a := range addrs {
 			err = ml.client.Rcpt(a.addr)
 			if err != nil {
@@ -91,7 +61,7 @@ func (ml *MaiLetter) Send() error {
 		return err
 	}
 	// fmt.Println(ml.mail.create())
-	_, err = wc.Write([]byte(ml.mail.String()))
+	_, err = wc.Write([]byte(m.String()))
 	if err != nil {
 		return err
 	}
@@ -105,12 +75,7 @@ func (ml *MaiLetter) Reset() error {
 	if err != nil {
 		return err
 	}
-	// ml.mail = NewMail()
 	return nil
-}
-
-func (ml *MaiLetter) Noop() error {
-	return ml.client.Noop()
 }
 
 func (ml *MaiLetter) Quit() error {
@@ -130,6 +95,10 @@ func (ml *MaiLetter) isConnected() bool {
 }
 
 func (ml *MaiLetter) connect() error {
+	if ml.isConnected() {
+		return nil
+	}
+
 	client, err := smtp.Dial(ml.dsn.Socket())
 	if err != nil {
 		return err

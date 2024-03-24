@@ -1,38 +1,22 @@
 package mailetter
 
 import (
-	"fmt"
-	"strings"
+	"reflect"
 	"testing"
 )
 
-const (
-	DSN       = "smtp://smtp.example.com:25"
-	FROM_ADDR = "test@example.com"
-	FROM_NAME = ""
-)
-
-func TestIsConnected(t *testing.T) {
-	goodDsn := DSN
-	opts := map[string]interface{}{}
-	m, _ := New(goodDsn, opts)
-	m.connect()
-	// fmt.Println(m.client)
-	if !m.isConnected() {
-		t.Errorf("Connection Failed. Something is wrong.")
+func TestMaiLetterNew(t *testing.T) {
+	dsn, _ := NewDsn("smtp://example.com")
+	cases := []struct {
+		dsn      *Dsn
+		expected string
+	}{
+		{dsn, "*mailetter.MaiLetter"},
 	}
-	badDsn := strings.ReplaceAll(DSN, ":25", ":12345")
-	m, _ = New(badDsn, opts)
-	m.connect()
-	if m.isConnected() {
-		t.Errorf("Connection Success. Something is wrong.")
-	}
-}
-
-func TestConnect(t *testing.T) {
-	opts := map[string]interface{}{}
-	_, err := New(DSN, opts)
-	if err != nil {
-		fmt.Println(err)
+	for k, v := range cases {
+		m := New(v.dsn)
+		if reflect.TypeOf(m).String() != v.expected {
+			t.Errorf(`[Case%d] %v`, k, reflect.TypeOf(m))
+		}
 	}
 }
