@@ -10,15 +10,15 @@ import (
 
 func TestNewAddress(t *testing.T) {
 	cases := []struct {
-		name    string
 		address string
+		name    string
 		typ     string
 		err     error
 	}{
-		{"John Smith", "john@example.com", "*mailetter.Address", nil},
-		{"Jane Smith", "jane@example.com", "*mailetter.Address", nil},
-		{"", "jane@example.com", "*mailetter.Address", nil},
-		{"", "janeatexample.com", "", errors.New("")},
+		{"john@example.com", "John Smith", "*mailetter.Address", nil},
+		{"jane@example.com", "Jane Smith", "*mailetter.Address", nil},
+		{"jane@example.com", "", "*mailetter.Address", nil},
+		{"janeatexample.com", "", "", errors.New("")},
 	}
 
 	for k, v := range cases {
@@ -45,7 +45,7 @@ func TestNewAddress(t *testing.T) {
 	}
 }
 
-func TestAddress(t *testing.T) {
+func TestAddressAddress(t *testing.T) {
 	type tcase struct {
 		name    string
 		address string
@@ -69,7 +69,7 @@ func TestAddress(t *testing.T) {
 	}
 }
 
-func TestName(t *testing.T) {
+func TestAddressName(t *testing.T) {
 	type tcase struct {
 		name    string
 		address string
@@ -89,7 +89,25 @@ func TestName(t *testing.T) {
 	}
 }
 
-func TestAddrAngle(t *testing.T) {
+func TestAddressError(t *testing.T) {
+	cases := []struct {
+		addr string
+		name string
+		err  error
+	}{
+		{"success@example.com", "Success", nil},
+		{"failatexample.com", "Fail", errors.New("")},
+	}
+
+	for k, v := range cases {
+		a := NewAddress(v.addr, v.name)
+		if reflect.TypeOf(a.Error()) != reflect.TypeOf(v.err) {
+			t.Errorf(`[Case%d] %v (%v)`, k, reflect.TypeOf(a.Error()), reflect.TypeOf(v.err))
+		}
+	}
+}
+
+func TestAddressAngle(t *testing.T) {
 	type tcase struct {
 		address string
 		expect  string
@@ -108,7 +126,7 @@ func TestAddrAngle(t *testing.T) {
 
 }
 
-func TestAddrString(t *testing.T) {
+func TestAddressString(t *testing.T) {
 	type tcase struct {
 		name string
 		addr string
