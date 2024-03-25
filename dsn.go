@@ -10,7 +10,7 @@ import (
 type Dsn struct {
 	scheme string
 	host   string
-	port   uint16
+	port   int
 }
 
 func NewDsn(str string) (*Dsn, error) {
@@ -20,28 +20,33 @@ func NewDsn(str string) (*Dsn, error) {
 		return nil, err
 	}
 	dsn := new(Dsn)
+	defaultPort := 0
 	switch u.Scheme {
 	case "smtp":
 		dsn.scheme = "smtp"
+		defaultPort = 25
 	case "smtps":
 		dsn.scheme = "smtps"
+		defaultPort = 465
 	case "smtp+tls":
 		dsn.scheme = "smtp+tls"
+		defaultPort = 587
 	default:
 		dsn.scheme = "smtps"
+		defaultPort = 465
 	}
 	dsn.host = u.Hostname()
 	if dsn.host == "" {
-		return nil, fmt.Errorf(`Invalid Hostname %s`, dsn.host)
+		return nil, fmt.Errorf(`Empty Hostname`)
 	}
 	if u.Port() != "" {
-		port, err := strconv.ParseUint(u.Port(), 10, 16)
+		port, err := strconv.ParseInt(u.Port(), 10, 32)
 		if err != nil {
 			return nil, err
 		}
-		dsn.port = uint16(port)
+		dsn.port = int(port)
 	} else {
-		dsn.port = uint16(587)
+		dsn.port = defaultPort
 	}
 	return dsn, nil
 }
@@ -54,10 +59,10 @@ func (dsn *Dsn) Host() string {
 	return dsn.host
 }
 
-func (dsn *Dsn) Port() uint16 {
+func (dsn *Dsn) Port() int {
 	return dsn.port
 }
 
-func (dsn *Dsn) String() string {
+func (dsn *Dsn) Socket() string {
 	return fmt.Sprintf("%s:%d", dsn.host, dsn.port)
 }

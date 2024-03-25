@@ -1,201 +1,176 @@
 package mailetter
 
 import (
+	"bytes"
 	"fmt"
-	"os"
 	"strings"
 	"text/template"
 	"time"
-	"bytes"
 )
 
-type Mail struct {
-	orders      []string
-	headers     map[string]map[string]string
-	from        *Addr
-	returnPath	*Addr
-	to          []*Addr
-	cc          []*Addr
-	bcc         []*Addr
-	subj        string
-	body        string
-	html        string
-	attachments []*Attachment
-	vars        map[string]interface{}
+type header struct {
+	key string
+	val string
 }
 
-func NewMail() *Mail {
+type Mail struct {
+	headers    map[string]header
+	from       *Address
+	returnPath *Address
+	replyTo    *Address
+	to         []*Address
+	cc         []*Address
+	bcc        []*Address
+	subject    *template.Template
+	body       *template.Template
+	vars       map[string]any
+}
+
+func NewMail(from *Address) *Mail {
 	m := new(Mail)
-	m.orders = []string{}
-	m.headers = map[string]map[string]string{}
-	m.from = nil
-	m.returnPath = nil
-	m.to = []*Addr{}
-	m.cc = []*Addr{}
-	m.bcc = []*Addr{}
-	m.subj = ""
-	m.body = ""
-	m.html = ""
-	m.attachments = []*Attachment{}
-	m.vars = map[string]interface{}{}
+	m.from = from
+	m.returnPath = from
+	m.replyTo = from
+	m.Reset()
 	return m
 }
 
-func (m *Mail) Header(key, val string) {
-	k := strings.ToLower(key)
-	if _, ok := m.headers[k]; !ok {
-		m.orders = append(m.orders, k)
-	}
-	m.headers[k] = map[string]string{"key": key, "val": val}
+func (m *Mail) Reset() {
+	m.headers = map[string]header{}
+	m.to = []*Address{}
+	m.cc = []*Address{}
+	m.bcc = []*Address{}
+	m.subject = nil
+	m.body = nil
+	m.vars = map[string]any{}
 }
 
-func (m *Mail) To(addr *Addr) {
+func (m *Mail) Header(key, val string) {
+	key = strings.Trim(key, white_space)
+	val = strings.Trim(val, white_space)
+	for old, new := range map[string]string{"\r": "", "\n": ""} {
+		key = strings.ReplaceAll(key, old, new)
+		val = strings.ReplaceAll(val, old, new)
+	}
+	excepts := map[string]bool{
+		"content-type": true,
+		"date":         true,
+		"from":         true,
+		"reply-to":     true,
+		"return-path":  true,
+		"to":           true,
+		"cc":           true,
+		"bcc":          true,
+		"subject":      true,
+	}
+	lowerKey := strings.ToLower(key)
+	if _, ok := excepts[lowerKey]; ok {
+		return
+	}
+
+	m.headers[lowerKey] = header{key: key, val: val}
+}
+
+func (m *Mail) To(addr *Address) {
 	m.to = append(m.to, addr)
 }
 
-func (m *Mail) Cc(addr *Addr) {
+func (m *Mail) Cc(addr *Address) {
 	m.cc = append(m.cc, addr)
 }
 
-func (m *Mail) Bcc(addr *Addr) {
+func (m *Mail) Bcc(addr *Address) {
 	m.bcc = append(m.bcc, addr)
 }
 
-func (m *Mail) From(addr *Addr) {
-	m.from = addr
-	if m.returnPath == nil {
-		m.returnPath = addr
+func (m *Mail) ReturnPath(addr *Address) {
+	m.returnPath = addr
+}
+
+func (m *Mail) ReplyTo(addr *Address) {
+	m.replyTo = addr
+}
+
+func (m *Mail) Subject(subject string) {
+	for old, new := range map[string]string{"\r": "", "\n": ""} {
+		subject = strings.ReplaceAll(subject, old, new)
 	}
-}
-
-func (m *Mail) Subject(subj string) {
-	m.subj = subj
-}
-
-func (m *Mail) Set(key string, val interface{}) {
-	m.vars[key] = val
+	m.subject = template.Must(template.New("Subject").Parse(subject))
 }
 
 func (m *Mail) Body(body string) {
-	m.body = body
+	body = strings.ReplaceAll(body, "\r\n", "\n")
+	body = strings.ReplaceAll(body, "\r", "\n")
+	body = strings.ReplaceAll(body, "\n", "\r\n")
+	m.body = template.Must(template.New("Body").Parse(body))
 }
 
-func (m *Mail) LoadBody(path string) error {
-	subj, body, err := m.load(path)
-	if err != nil {
-		return err
-	}
-	m.Subject(string(subj))
-	m.Body(string(body))
-	return nil
+func (m *Mail) Set(key string, val any) {
+	m.vars[key] = val
 }
 
-func (m *Mail) Html(html string) {
-	m.html = html
-}
+func (m *Mail) String() string {
+	sb := strings.Builder{}
+	line := strings.Builder{}
+	// buf := bytes.NewBuffer(make([]byte, 10240))
 
-func (m *Mail) LoadHtml(path string) error {
-	subj, html, err := m.load(path)
-	if err != nil {
-		return err
+	// Headers
+	line.Reset()
+	for _, v := range m.headers {
+		line.WriteString(fmt.Sprintf("%s: %s\r\n", v.key, EncodeMimeString(v.val, true)))
+		sb.WriteString(line.String())
 	}
-	m.Subject(string(subj))
-	m.Html(string(html))
-	return nil
-}
 
-func (m *Mail) Attach(a *Attachment) {
-	m.attachments = append(m.attachments, a)
-}
-
-func (m *Mail) load(path string) ([]byte, []byte, error) {
-	if _, err := os.Lstat(path); os.IsNotExist(err) {
-		return []byte{}, []byte{}, err
-	}
-	tpl := template.Must(template.ParseFiles(path))
-	buf := bytes.NewBuffer(make([]byte, 0, 10240))
-	err := tpl.Execute(buf, m.vars)
-	if err != nil {
-		return []byte{}, []byte{}, err
-	}
-	content := buf.Bytes()
-	idx := 0
-	// Subject
-	pos := bytes.Index(content, []byte("\n"))
-	if idx<0 {
-		return []byte{}, []byte{}, err
-	}
-	idx += pos
-	subj := bytes.Trim(content[:idx], "\r\n")
-	// Body
-	pos = bytes.Index(content[idx+1:], []byte("\n"))
-	if idx<0 { // Skip Empty line
-		return []byte{}, []byte{}, err
-	}
-	idx += pos
-	body := content[idx+1:]
-
-	return subj, body, nil
-}
-
-func (m *Mail) create() string {
-	content := strings.Builder{}
-	header := ""
-	// Header
-	for _, k := range m.orders {
-		hdr := m.headers[k]
-		content.WriteString(fmt.Sprintf("%s: %s\r\n", hdr["key"], hdr["val"]))
-	}
 	// Content-Type
-	header = fmt.Sprintf("Content-Type: %s\r\n", "text/plain; charset=UTF-8")
-	content.WriteString(header)
+	sb.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	// Date
-	header = fmt.Sprintf("Date: %s\r\n", time.Now().Format(time.RFC1123Z))
-	content.WriteString(header)
+	sb.WriteString(fmt.Sprintf("Date: %s\r\n", time.Now().Format(time.RFC1123Z)))
 	// From
-	if len(m.from.name) > 0 {
-		header = fmt.Sprintf("From: %s <%s>\r\n", encode(m.from.name), m.from.addr)
-	} else {
-		header = fmt.Sprintf("From: <%s>\r\n", m.from.addr)
-	}
-	content.WriteString(header)
-	// To
-	to := strings.Builder{}
-	for k, v := range m.to {
-		indent := ""
-		if k > 0 {
-			indent = "    "
+	sb.WriteString(fmt.Sprintf("From: %s\r\n", EncodeMimeString(m.from.String(), true)))
+	// To, Cc
+	rcpts := map[string][]*Address{"To": m.to, "Cc": m.cc}
+	for label, addrs := range rcpts {
+		if len(addrs) == 0 {
+			continue
 		}
-		if len(v.name) > 0 {
-			to.WriteString(fmt.Sprintf("%s%s <%s>,\r\n", indent, encode(v.name), v.addr))
-		} else {
-			to.WriteString(fmt.Sprintf("%s<%s>,\r\n", indent, v.addr))
+		line.Reset()
+		line.WriteString(label)
+		line.WriteString(":")
+		for k, v := range addrs {
+			if k == 0 {
+				line.WriteString(" ")
+			} else {
+				line.WriteString("    ")
+			}
+			line.WriteString(v.String())
+			if len(addrs) > k+1 {
+				line.WriteString(",")
+			}
+			line.WriteString("\r\n")
 		}
+		sb.WriteString(line.String())
 	}
-	header = fmt.Sprintf("To: %s\r\n", strings.TrimRight(to.String(), "\r\n,"))
-	content.WriteString(header)
-	// Cc
-	cc := strings.Builder{}
-	for k, v := range m.cc {
-		indent := ""
-		if k > 0 {
-			indent = "    "
-		}
-		if len(v.name) > 0 {
-			cc.WriteString(fmt.Sprintf("%s%s <%s>,\r\n", indent, encode(v.name), v.addr))
-		} else {
-			cc.WriteString(fmt.Sprintf("%s<%s>,\r\n", indent, v.addr))
-		}
-	}
-	header = fmt.Sprintf("Cc: %s\r\n", strings.TrimRight(cc.String(), "\r\n,"))
-	if len(m.cc) > 0 {
-		content.WriteString(header)
-	}
-	// Subject
-	content.WriteString(fmt.Sprintf("Subject: %s\r\n", encode(m.subj)))
-	content.WriteString("\r\n")
-	// Body
-	content.WriteString(m.body)
 
-	return content.String()
+	// Subject
+	if m.subject == nil {
+		m.Subject("")
+	}
+	buf := bytes.NewBuffer([]byte{})
+	m.subject.Execute(buf, m.vars)
+	subject := EncodeMimeString(buf.String(), true)
+	line.Reset()
+	line.WriteString("Subject: ")
+	line.WriteString(EncodeMimeString(subject, true))
+	line.WriteString("\r\n")
+	sb.WriteString(line.String())
+
+	// Body
+	buf.Reset()
+	m.body.Execute(buf, m.vars)
+	line.Reset()
+	line.WriteString("\r\n")
+	line.WriteString(buf.String())
+	sb.WriteString(line.String())
+
+	return sb.String()
 }
