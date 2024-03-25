@@ -12,21 +12,21 @@ const (
 )
 
 type MaiLetter struct {
-	dsn      *Dsn
-	client   *smtp.Client
-	hostname string
+	dsn       *Dsn
+	client    *smtp.Client
+	localName string
 }
 
 func New(dsn *Dsn) *MaiLetter {
 	ml := new(MaiLetter)
 	ml.dsn = dsn
 	ml.client = nil
-	ml.hostname = ""
+	ml.localName = "localhost.localdomain"
 	return ml
 }
 
-func (ml *MaiLetter) Hostname(hostname string) {
-	ml.hostname = hostname
+func (ml *MaiLetter) LocalName(localName string) {
+	ml.localName = localName
 }
 
 func (ml *MaiLetter) Send(m *Mail) error {
@@ -37,15 +37,17 @@ func (ml *MaiLetter) Send(m *Mail) error {
 	}
 
 	// Hello
-	err = ml.client.Hello(ml.hostname)
+	err = ml.client.Hello(ml.localName)
 	if err != nil {
 		return err
 	}
+
 	// Mail From
 	err = ml.client.Mail(m.from.addr)
 	if err != nil {
 		return err
 	}
+
 	// Rcpt To
 	for _, addrs := range [][]*Address{m.to, m.cc, m.bcc} {
 		for _, a := range addrs {
@@ -55,6 +57,7 @@ func (ml *MaiLetter) Send(m *Mail) error {
 			}
 		}
 	}
+
 	// Data
 	wc, err := ml.client.Data()
 	if err != nil {
@@ -83,7 +86,10 @@ func (ml *MaiLetter) Quit() error {
 }
 
 func (ml *MaiLetter) Close() error {
-	return ml.client.Close()
+	if ml.client != nil {
+		return ml.client.Close()
+	}
+	return nil
 }
 
 func (ml *MaiLetter) isConnected() bool {
@@ -104,6 +110,5 @@ func (ml *MaiLetter) connect() error {
 		return err
 	}
 	ml.client = client
-
 	return nil
 }

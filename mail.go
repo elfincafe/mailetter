@@ -130,6 +130,9 @@ func (m *Mail) String() string {
 	// To, Cc
 	rcpts := map[string][]*Address{"To": m.to, "Cc": m.cc}
 	for label, addrs := range rcpts {
+		if len(addrs) == 0 {
+			continue
+		}
 		line.Reset()
 		line.WriteString(label)
 		line.WriteString(":")
