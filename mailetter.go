@@ -116,14 +116,14 @@ func (ml *MaiLetter) connect() error {
 	}
 	var err error
 	if ml.dsn.IsSsl() {
-		err = ml.connectWithSsl()
+		err = ml.connectWithTls()
 	} else {
-		err = ml.connectWithoutSsl()
+		err = ml.connectWithoutTls()
 	}
 	return err
 }
 
-func (ml *MaiLetter) connectWithoutSsl() error {
+func (ml *MaiLetter) connectWithoutTls() error {
 	client, err := smtp.Dial(ml.dsn.Socket())
 	if err != nil {
 		return err
@@ -132,7 +132,7 @@ func (ml *MaiLetter) connectWithoutSsl() error {
 	return nil
 }
 
-func (ml *MaiLetter) connectWithSsl() error {
+func (ml *MaiLetter) connectWithTls() error {
 	conn, err := tls.Dial("tcp", ml.dsn.Socket(), ml.tlsConfig)
 	if err != nil {
 		return err
@@ -142,5 +142,18 @@ func (ml *MaiLetter) connectWithSsl() error {
 		return err
 	}
 	ml.client = client
+	return nil
+}
+
+func (ml *MaiLetter) connectAndStartTls() error {
+	var err error
+	err = ml.connectWithoutTls()
+	if err != nil {
+		return err
+	}
+	err = ml.client.StartTLS(ml.tlsConfig)
+	if err != nil {
+		return err
+	}
 	return nil
 }
