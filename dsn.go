@@ -66,3 +66,7 @@ func (dsn *Dsn) Port() int {
 func (dsn *Dsn) Socket() string {
 	return fmt.Sprintf("%s:%d", dsn.host, dsn.port)
 }
+
+func (dsn *Dsn) IsSsl() bool {
+	return dsn.scheme == "smtps"
+}

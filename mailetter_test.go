@@ -6,15 +6,15 @@ import (
 )
 
 func TestMaiLetterNew(t *testing.T) {
-	dsn, _ := NewDsn("smtp://example.com")
+	dsn := "smtp://example.com"
 	cases := []struct {
-		dsn      *Dsn
+		dsn      string
 		expected string
 	}{
 		{dsn, "*mailetter.MaiLetter"},
 	}
 	for k, v := range cases {
-		m := New(v.dsn)
+		m, _ := New(v.dsn)
 		if reflect.TypeOf(m).String() != v.expected {
 			t.Errorf(`[Case%d] %v`, k, reflect.TypeOf(m))
 		}
@@ -30,8 +30,8 @@ func TestMaiLetterLocalName(t *testing.T) {
 		{true, "mail.example.com"},
 	}
 	for k, v := range cases {
-		dsn, _ := NewDsn("smtp://localhost")
-		m := New(dsn)
+		dsn := "smtp://localhost"
+		m, _ := New(dsn)
 		if v.call {
 			m.LocalName(v.name)
 		}
@@ -39,4 +39,8 @@ func TestMaiLetterLocalName(t *testing.T) {
 			t.Errorf(`[Case%d] %s (%s)`, k, m.localName, v.name)
 		}
 	}
+}
+
+func TestMaiLetterConnect(t *testing.T) {
+
 }
