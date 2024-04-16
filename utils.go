@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func EncodeMime(b []byte, flg bool) []byte {
+func encodeMime(b []byte, flg bool) []byte {
 	needsEnc := false
 	for _, v := range b {
 		if v > 127 {
@@ -33,7 +33,7 @@ func EncodeMime(b []byte, flg bool) []byte {
 	}
 }
 
-func EncodeMimeString(s string, flg bool) string {
+func encodeMimeString(s string, flg bool) string {
 	needsEnc := false
 	for _, v := range s {
 		if v > 127 {
@@ -51,7 +51,7 @@ func EncodeMimeString(s string, flg bool) string {
 	}
 }
 
-func Border(length int) string {
+func border(length int) string {
 	if length < 1 {
 		length = 24
 	}

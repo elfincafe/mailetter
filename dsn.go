@@ -7,36 +7,36 @@ import (
 	"strings"
 )
 
-type Dsn struct {
+type dsn struct {
 	scheme string
 	host   string
 	port   int
 }
 
-func NewDsn(str string) (*Dsn, error) {
+func newDsn(str string) (*dsn, error) {
 	str = strings.ToLower(strings.TrimSpace(str))
 	u, err := url.Parse(str)
 	if err != nil {
 		return nil, err
 	}
-	dsn := new(Dsn)
+	sDsn := new(dsn)
 	defaultPort := 0
 	switch u.Scheme {
 	case "smtp":
-		dsn.scheme = "smtp"
+		sDsn.scheme = "smtp"
 		defaultPort = 25
 	case "smtps":
-		dsn.scheme = "smtps"
+		sDsn.scheme = "smtps"
 		defaultPort = 465
 	case "smtp+tls":
-		dsn.scheme = "smtp+tls"
+		sDsn.scheme = "smtp+tls"
 		defaultPort = 587
 	default:
-		dsn.scheme = "smtps"
+		sDsn.scheme = "smtps"
 		defaultPort = 465
 	}
-	dsn.host = u.Hostname()
-	if dsn.host == "" {
+	sDsn.host = u.Hostname()
+	if sDsn.host == "" {
 		return nil, fmt.Errorf(`Empty Hostname`)
 	}
 	if u.Port() != "" {
@@ -44,29 +44,29 @@ func NewDsn(str string) (*Dsn, error) {
 		if err != nil {
 			return nil, err
 		}
-		dsn.port = int(port)
+		sDsn.port = int(port)
 	} else {
-		dsn.port = defaultPort
+		sDsn.port = defaultPort
 	}
-	return dsn, nil
+	return sDsn, nil
 }
 
-func (dsn *Dsn) Scheme() string {
+func (dsn *dsn) Scheme() string {
 	return dsn.scheme
 }
 
-func (dsn *Dsn) Host() string {
+func (dsn *dsn) Host() string {
 	return dsn.host
 }
 
-func (dsn *Dsn) Port() int {
+func (dsn *dsn) Port() int {
 	return dsn.port
 }
 
-func (dsn *Dsn) Socket() string {
+func (dsn *dsn) Socket() string {
 	return fmt.Sprintf("%s:%d", dsn.host, dsn.port)
 }
 
-func (dsn *Dsn) IsSsl() bool {
+func (dsn *dsn) IsSsl() bool {
 	return dsn.scheme == "smtps"
 }

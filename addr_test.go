@@ -15,14 +15,34 @@ func TestNewAddress(t *testing.T) {
 		typ     string
 		err     error
 	}{
-		{"john@example.com", "John Smith", "*mailetter.Address", nil},
-		{"jane@example.com", "Jane Smith", "*mailetter.Address", nil},
-		{"jane@example.com", "", "*mailetter.Address", nil},
-		{"janeatexample.com", "", "", errors.New("")},
+		{
+			"john@example.com",
+			"John Smith",
+			"*mailetter.Address",
+			nil,
+		},
+		{
+			"jane@example.com",
+			"Jane Smith",
+			"*mailetter.Address",
+			nil,
+		},
+		{
+			"jane@example.com",
+			"",
+			"*mailetter.Address",
+			nil,
+		},
+		{
+			"janeatexample.com",
+			"",
+			"",
+			errors.New(""),
+		},
 	}
 
 	for k, v := range cases {
-		a := NewAddress(v.address, v.name)
+		a := NewAddr(v.address, v.name)
 		s := strings.Builder{}
 		s.WriteString(fmt.Sprintf("[Case%d] ", k))
 		length := len(s.String())
@@ -46,17 +66,30 @@ func TestNewAddress(t *testing.T) {
 }
 
 func TestAddressAddress(t *testing.T) {
-	type tcase struct {
+	cases := []struct {
 		name    string
 		address string
 		err     error
+	}{
+		{
+			"John Smith",
+			"john@example.com",
+			nil,
+		},
+		{
+			"Jane Smith",
+			"jane@example.com",
+			nil,
+		},
+		{
+			"",
+			"",
+			errors.New(""),
+		},
 	}
-	cases := []tcase{}
-	cases = append(cases, tcase{"John Smith", "john@example.com", nil})
-	cases = append(cases, tcase{"Jane Smith", "jane@example.com", nil})
-	cases = append(cases, tcase{"", "", errors.New("")})
+
 	for k, v := range cases {
-		a := NewAddress(v.address, v.name)
+		a := NewAddr(v.address, v.name)
 		s := strings.Builder{}
 		s.WriteString(fmt.Sprintf("[Case%d]", k))
 		length := len(s.String())
@@ -70,17 +103,30 @@ func TestAddressAddress(t *testing.T) {
 }
 
 func TestAddressName(t *testing.T) {
-	type tcase struct {
+	cases := []struct {
 		name    string
 		address string
 		err     error
+	}{
+		{
+			"John Smith",
+			"john@example.com",
+			nil,
+		},
+		{
+			"Jane Smith",
+			"jane@example.com",
+			nil,
+		},
+		{
+			"",
+			"",
+			errors.New(""),
+		},
 	}
-	cases := []tcase{}
-	cases = append(cases, tcase{"John Smith", "john@example.com", nil})
-	cases = append(cases, tcase{"Jane Smith", "jane@example.com", nil})
-	cases = append(cases, tcase{"", "", errors.New("")})
+
 	for k, v := range cases {
-		a := NewAddress(v.address, v.name)
+		a := NewAddr(v.address, v.name)
 		s := strings.Builder{}
 		s.WriteString(fmt.Sprintf("[Case%d] ", k))
 		if a.name != v.name {
@@ -95,12 +141,20 @@ func TestAddressError(t *testing.T) {
 		name string
 		err  error
 	}{
-		{"success@example.com", "Success", nil},
-		{"failatexample.com", "Fail", errors.New("")},
+		{
+			"success@example.com",
+			"Success",
+			nil,
+		},
+		{
+			"failatexample.com",
+			"Fail",
+			errors.New(""),
+		},
 	}
 
 	for k, v := range cases {
-		a := NewAddress(v.addr, v.name)
+		a := NewAddr(v.addr, v.name)
 		if reflect.TypeOf(a.Error()) != reflect.TypeOf(v.err) {
 			t.Errorf(`[Case%d] %v (%v)`, k, reflect.TypeOf(a.Error()), reflect.TypeOf(v.err))
 		}
@@ -108,37 +162,66 @@ func TestAddressError(t *testing.T) {
 }
 
 func TestAddressAngle(t *testing.T) {
-	type tcase struct {
+	cases := []struct {
 		address string
 		expect  string
+	}{
+		{
+			"john@example.com",
+			"<john@example.com>",
+		},
+		{
+			"jane@example.com",
+			"<jane@example.com>",
+		},
+		{
+			"taro@example.com",
+			"<taro@example.com>",
+		},
+		{
+			"",
+			"<>",
+		},
 	}
-	cases := []tcase{}
-	cases = append(cases, tcase{"john@example.com", "<john@example.com>"})
-	cases = append(cases, tcase{"jane@example.com", "<jane@example.com>"})
-	cases = append(cases, tcase{"taro@example.com", "<taro@example.com>"})
-	cases = append(cases, tcase{"", "<>"})
+
 	for k, v := range cases {
-		a := NewAddress(v.address, "")
+		a := NewAddr(v.address, "")
 		if a.String() != v.expect {
 			t.Errorf("[Case%d] %s != %s", k, a.Angle(), v.expect)
 		}
 	}
-
 }
 
 func TestAddressString(t *testing.T) {
-	type tcase struct {
+	cases := []struct {
 		name string
 		addr string
 		mime string
+	}{
+		{
+			"John Smith",
+			"john@example.com",
+			"John Smith <john@example.com>",
+		},
+		{
+			"",
+			"jane@example.com",
+			"<jane@example.com>",
+		},
+		{
+			"山田 太郎",
+			"taro@example.com",
+			"=?UTF-8?B?5bGx55SwIOWkqumDjg==?= <taro@example.com>",
+		},
+		{
+			"",
+			"",
+			"<>",
+		},
 	}
-	cases := []tcase{}
-	cases = append(cases, tcase{"John Smith", "john@example.com", "John Smith <john@example.com>"})
-	cases = append(cases, tcase{"", "jane@example.com", "<jane@example.com>"})
-	cases = append(cases, tcase{"山田 太郎", "taro@example.com", "=?UTF-8?B?5bGx55SwIOWkqumDjg==?= <taro@example.com>"})
-	cases = append(cases, tcase{"", "", "<>"})
+
 	for k, v := range cases {
-		a := NewAddress(v.addr, v.name)
+		a := NewAddr(v.addr, v.name)
 		if a.String() != v.mime {
 			t.Errorf("[Case%d] %s != %s", k, a.String(), v.mime)
 		}

@@ -13,14 +13,14 @@ const (
 )
 
 type MaiLetter struct {
-	dsn       *Dsn
+	dsn       *dsn
 	client    *smtp.Client
 	localName string
 	tlsConfig *tls.Config
 }
 
 func New(dsn string) (*MaiLetter, error) {
-	oDsn, err := NewDsn(dsn)
+	oDsn, err := newDsn(dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (ml *MaiLetter) Send(m *Mail) error {
 	}
 
 	// Rcpt To
-	for _, addrs := range [][]*Address{m.to, m.cc, m.bcc} {
+	for _, addrs := range [][]*Addr{m.to, m.cc, m.bcc} {
 		for _, a := range addrs {
 			err = ml.client.Rcpt(a.addr)
 			if err != nil {

@@ -11,7 +11,10 @@ func TestMaiLetterNew(t *testing.T) {
 		dsn      string
 		expected string
 	}{
-		{dsn, "*mailetter.MaiLetter"},
+		{
+			dsn,
+			"*mailetter.MaiLetter",
+		},
 	}
 	for k, v := range cases {
 		m, _ := New(v.dsn)
@@ -26,9 +29,16 @@ func TestMaiLetterLocalName(t *testing.T) {
 		call bool
 		name string
 	}{
-		{false, "localhost.localdomain"},
-		{true, "mail.example.com"},
+		{
+			false,
+			"localhost.localdomain",
+		},
+		{
+			true,
+			"mail.example.com",
+		},
 	}
+
 	for k, v := range cases {
 		dsn := "smtp://localhost"
 		m, _ := New(dsn)
