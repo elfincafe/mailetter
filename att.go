@@ -9,7 +9,7 @@ type Att struct {
 	name string
 }
 
-func NewAttachment(r io.Reader, name string) (*Att, error) {
+func NewAtt(r io.Reader, name string) (*Att, error) {
 	a := new(Att)
 	a.name = name
 	a.r = r

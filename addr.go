@@ -6,16 +6,16 @@ import (
 	"strings"
 )
 
-type Address struct {
+type Addr struct {
 	addr string
 	name string
 	err  error
 }
 
-func NewAddress(address, name string) *Address {
+func NewAddr(address, name string) *Addr {
 	address = strings.Trim(address, white_space)
 	name = strings.Trim(name, white_space)
-	a := &Address{addr: "", name: "", err: nil}
+	a := &Addr{addr: "", name: "", err: nil}
 	pa, err := mail.ParseAddress(fmt.Sprintf("%s <%s>", name, address))
 	if err != nil {
 		a.err = err
@@ -26,25 +26,25 @@ func NewAddress(address, name string) *Address {
 	return a
 }
 
-func (a *Address) Address() string {
+func (a *Addr) Address() string {
 	return a.addr
 }
 
-func (a *Address) Name() string {
+func (a *Addr) Name() string {
 	return a.name
 }
 
-func (a *Address) Error() error {
+func (a *Addr) Error() error {
 	return a.err
 }
 
-func (a *Address) Angle() string {
+func (a *Addr) Angle() string {
 	return fmt.Sprintf("<%s>", a.addr)
 }
 
-func (a *Address) String() string {
+func (a *Addr) String() string {
 	if len(a.name) > 0 {
-		return fmt.Sprintf("%s %s", EncodeMimeString(a.name, true), a.Angle())
+		return fmt.Sprintf("%s %s", encodeMimeString(a.name, true), a.Angle())
 	} else {
 		return a.Angle()
 	}

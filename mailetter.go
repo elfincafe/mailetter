@@ -1,28 +1,38 @@
 package mailetter
 
 import (
+	"crypto/tls"
 	"net/smtp"
 )
 
 const (
 	br          = "\r\n"
 	white_space = " \r\n\t\v\b"
-	should_br   = 78
-	must_br     = 998
+	shouldBr    = 78
+	mustBr      = 998
 )
 
 type MaiLetter struct {
-	dsn       *Dsn
+	dsn       *dsn
 	client    *smtp.Client
 	localName string
+	tlsConfig *tls.Config
 }
 
-func New(dsn *Dsn) *MaiLetter {
+func New(dsn string) (*MaiLetter, error) {
+	oDsn, err := newDsn(dsn)
+	if err != nil {
+		return nil, err
+	}
 	ml := new(MaiLetter)
-	ml.dsn = dsn
+	ml.dsn = oDsn
 	ml.client = nil
-	ml.localName = "localhost.localdomain"
-	return ml
+	ml.localName = "localhost"
+	ml.tlsConfig = &tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         oDsn.Host(),
+	}
+	return ml, nil
 }
 
 func (ml *MaiLetter) LocalName(localName string) {
@@ -49,7 +59,7 @@ func (ml *MaiLetter) Send(m *Mail) error {
 	}
 
 	// Rcpt To
-	for _, addrs := range [][]*Address{m.to, m.cc, m.bcc} {
+	for _, addrs := range [][]*Addr{m.to, m.cc, m.bcc} {
 		for _, a := range addrs {
 			err = ml.client.Rcpt(a.addr)
 			if err != nil {
@@ -104,11 +114,46 @@ func (ml *MaiLetter) connect() error {
 	if ml.isConnected() {
 		return nil
 	}
+	var err error
+	if ml.dsn.IsSsl() {
+		err = ml.connectWithSsl()
+	} else {
+		err = ml.connectWithoutSsl()
+	}
+	return err
+}
 
+func (ml *MaiLetter) connectWithoutSsl() error {
 	client, err := smtp.Dial(ml.dsn.Socket())
 	if err != nil {
 		return err
 	}
 	ml.client = client
+	return nil
+}
+
+func (ml *MaiLetter) connectWithSsl() error {
+	conn, err := tls.Dial("tcp", ml.dsn.Socket(), ml.tlsConfig)
+	if err != nil {
+		return err
+	}
+	client, err := smtp.NewClient(conn, ml.dsn.Host())
+	if err != nil {
+		return err
+	}
+	ml.client = client
+	return nil
+}
+
+func (ml *MaiLetter) connectAndStartTls() error {
+	var err error
+	err = ml.connectWithoutSsl()
+	if err != nil {
+		return err
+	}
+	err = ml.client.StartTLS(ml.tlsConfig)
+	if err != nil {
+		return err
+	}
 	return nil
 }

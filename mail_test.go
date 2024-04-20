@@ -2,6 +2,7 @@ package mailetter
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -9,7 +10,7 @@ import (
 )
 
 func TestNewMail(t *testing.T) {
-	from := NewAddress("from@example.com", "Sender")
+	from := NewAddr("from@example.com", "Sender")
 	m := NewMail(from)
 	typ := reflect.TypeOf(m)
 	expect := reflect.TypeOf((*Mail)(nil)).String()
@@ -24,24 +25,24 @@ func TestNewMail(t *testing.T) {
 func TestMailReset(t *testing.T) {
 	cases := []struct {
 		headers map[string]header
-		to      []*Address
-		cc      []*Address
-		bcc     []*Address
+		to      []*Addr
+		cc      []*Addr
+		bcc     []*Addr
 		subject *template.Template
 		body    *template.Template
 		vars    map[string]any
 	}{
 		{
 			map[string]header{"test-header": header{"Test-Header", "Test Header Value"}},
-			[]*Address{NewAddress("To Address", "to@example.com")},
-			[]*Address{NewAddress("Cc Address", "cc@example.com")},
-			[]*Address{NewAddress("Bcc Address", "bcc@example.com")},
+			[]*Addr{NewAddr("To Address", "to@example.com")},
+			[]*Addr{NewAddr("Cc Address", "cc@example.com")},
+			[]*Addr{NewAddr("Bcc Address", "bcc@example.com")},
 			template.Must(template.New("Subject").Parse("Dear. {{.Name}}")),
 			template.Must(template.New("Body").Parse("")),
 			map[string]any{"Name": "Example User"},
 		},
 	}
-	from := NewAddress("from@example.com", "From Address")
+	from := NewAddr("from@example.com", "From Address")
 	m := NewMail(from)
 	for k, v := range cases {
 		m.headers = v.headers
@@ -78,7 +79,7 @@ func TestMailHeader(t *testing.T) {
 		{"X-Mailer", "Test MTU 2", true},
 	}
 	count := 2
-	from := NewAddress("from@example.com", "Sender")
+	from := NewAddr("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
 		m.Header(v.key, v.val)
@@ -111,10 +112,10 @@ func TestMailTo(t *testing.T) {
 		{"to+1@example.com"},
 		{"to+2@example.com"},
 	}
-	from := NewAddress("from@example.com", "Sender")
+	from := NewAddr("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
-		a := NewAddress(v.addr, "")
+		a := NewAddr(v.addr, "")
 		m.To(a)
 		if m.to[k] != a {
 			t.Errorf("[Case%d] Address: %v (%v)", k, m.to[k], a)
@@ -133,10 +134,10 @@ func TestMailCc(t *testing.T) {
 		{"cc+1@example.com"},
 		{"cc+2@example.com"},
 	}
-	from := NewAddress("from@example.com", "Sender")
+	from := NewAddr("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
-		a := NewAddress(v.addr, "")
+		a := NewAddr(v.addr, "")
 		m.Cc(a)
 		if m.cc[k] != a {
 			t.Errorf("[Case%d] Address: %v (%v)", k, m.cc[k], a)
@@ -151,14 +152,20 @@ func TestMailBcc(t *testing.T) {
 	cases := []struct {
 		addr string
 	}{
-		{"bcc+0@example.com"},
-		{"bcc+1@example.com"},
-		{"bcc+2@example.com"},
+		{
+			"bcc+0@example.com",
+		},
+		{
+			"bcc+1@example.com",
+		},
+		{
+			"bcc+2@example.com",
+		},
 	}
-	from := NewAddress("from@example.com", "Sender")
+	from := NewAddr("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
-		a := NewAddress(v.addr, "")
+		a := NewAddr(v.addr, "")
 		m.Bcc(a)
 		if m.bcc[k] != a {
 			t.Errorf("[Case%d] Address: %v (%v)", k, m.bcc[k], a)
@@ -171,10 +178,13 @@ func TestMailBcc(t *testing.T) {
 
 func TestMailReplyTo(t *testing.T) {
 	cases := []struct {
-		from  *Address
-		reply *Address
+		from  *Addr
+		reply *Addr
 	}{
-		{NewAddress("from@example.com", ""), NewAddress("reply-to@example.com", "")},
+		{
+			NewAddr("from@example.com", ""),
+			NewAddr("reply-to@example.com", ""),
+		},
 	}
 
 	for k, v := range cases {
@@ -192,10 +202,13 @@ func TestMailReplyTo(t *testing.T) {
 
 func TestMailReturnPath(t *testing.T) {
 	cases := []struct {
-		from *Address
-		ret  *Address
+		from *Addr
+		ret  *Addr
 	}{
-		{NewAddress("from@example.com", ""), NewAddress("return-path@example.com", "")},
+		{
+			NewAddr("from@example.com", ""),
+			NewAddr("return-path@example.com", ""),
+		},
 	}
 
 	for k, v := range cases {
@@ -216,11 +229,17 @@ func TestMailSubject(t *testing.T) {
 		subject string
 		vars    any
 	}{
-		{"Subject1", nil},
-		{"Dear {{.Name}}", nil},
+		{
+			"Subject1",
+			nil,
+		},
+		{
+			"Dear {{.Name}}",
+			nil,
+		},
 	}
 
-	from := NewAddress("from@example.com", "Sender")
+	from := NewAddr("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
 		m.Subject(v.subject)
@@ -236,11 +255,17 @@ func TestMailBody(t *testing.T) {
 		body string
 		vars any
 	}{
-		{"Test Body Part1", nil},
-		{"Test\r\nBody\r\nPart2\r\n{{.Name}}", nil},
+		{
+			"Test Body Part1",
+			nil,
+		},
+		{
+			"Test\r\nBody\r\nPart2\r\n{{.Name}}",
+			nil,
+		},
 	}
 
-	from := NewAddress("from@example.com", "Sender")
+	from := NewAddr("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
 		m.Subject(v.body)
@@ -257,13 +282,22 @@ func TestMailSet(t *testing.T) {
 		key string
 		val any
 	}{
-		{"a", "abc"},
-		{"b", 1},
-		{"a", []string{"a", "b", "c"}},
+		{
+			"a",
+			"abc",
+		},
+		{
+			"b",
+			1,
+		},
+		{
+			"a",
+			[]string{"a", "b", "c"},
+		},
 	}
 	expected := 2
 
-	from := NewAddress("from@example.com", "Sender")
+	from := NewAddr("from@example.com", "Sender")
 	m := NewMail(from)
 	for k, v := range cases {
 		m.Set(v.key, v.val)
@@ -281,25 +315,25 @@ func TestMailSet(t *testing.T) {
 func TestMailString(t *testing.T) {
 	cases := []struct {
 		headers map[string]header
-		to      []*Address
-		cc      []*Address
-		bcc     []*Address
+		to      []*Addr
+		cc      []*Addr
+		bcc     []*Addr
 		subject string
-		body    string
+		body    io.Reader
 		vars    map[string]any
 	}{
 		{
 			map[string]header{"test-header": {"Test-Header", "Test Header Value"}},
-			[]*Address{NewAddress("to0@example.com", "受信者To0"), NewAddress("to1@example.com", "受信者To1")},
-			[]*Address{NewAddress("cc0@example.com", "受信者Cc0"), NewAddress("cc1@example.com", "受信者Cc1"), NewAddress("cc2@example.com", "受信者Cc2")},
-			[]*Address{NewAddress("bcc0@example.com", "受信者Bcc0")},
+			[]*Addr{NewAddr("to0@example.com", "受信者To0"), NewAddr("to1@example.com", "受信者To1")},
+			[]*Addr{NewAddr("cc0@example.com", "受信者Cc0"), NewAddr("cc1@example.com", "受信者Cc1"), NewAddr("cc2@example.com", "受信者Cc2")},
+			[]*Addr{NewAddr("bcc0@example.com", "受信者Bcc0")},
 			"[{{.ServiceName}}] {{.Name}}様 新商品のお知らせ",
-			"{{.Name}}様\nいつもご利用ありがとうございます。\n{{.ServiceName}}カスタマーサポートでございます。",
+			strings.NewReader("{{.Name}}様\nいつもご利用ありがとうございます。\n{{.ServiceName}}カスタマーサポートでございます。"),
 			map[string]any{"ServiceName": "ECサービス", "Name": "ECサービスユーザー"},
 		},
 	}
 
-	m := NewMail(NewAddress("from@example.com", "送信者"))
+	m := NewMail(NewAddr("from@example.com", "送信者"))
 	for i, c := range cases {
 		for _, v := range c.headers {
 			m.Header(v.key, v.val)

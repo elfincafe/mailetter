@@ -3,6 +3,7 @@ package mailetter
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"text/template"
 	"time"
@@ -15,18 +16,18 @@ type header struct {
 
 type Mail struct {
 	headers    map[string]header
-	from       *Address
-	returnPath *Address
-	replyTo    *Address
-	to         []*Address
-	cc         []*Address
-	bcc        []*Address
+	from       *Addr
+	returnPath *Addr
+	replyTo    *Addr
+	to         []*Addr
+	cc         []*Addr
+	bcc        []*Addr
 	subject    *template.Template
 	body       *template.Template
 	vars       map[string]any
 }
 
-func NewMail(from *Address) *Mail {
+func NewMail(from *Addr) *Mail {
 	m := new(Mail)
 	m.from = from
 	m.returnPath = from
@@ -37,9 +38,9 @@ func NewMail(from *Address) *Mail {
 
 func (m *Mail) Reset() {
 	m.headers = map[string]header{}
-	m.to = []*Address{}
-	m.cc = []*Address{}
-	m.bcc = []*Address{}
+	m.to = []*Addr{}
+	m.cc = []*Addr{}
+	m.bcc = []*Addr{}
 	m.subject = nil
 	m.body = nil
 	m.vars = map[string]any{}
@@ -71,23 +72,23 @@ func (m *Mail) Header(key, val string) {
 	m.headers[lowerKey] = header{key: key, val: val}
 }
 
-func (m *Mail) To(addr *Address) {
+func (m *Mail) To(addr *Addr) {
 	m.to = append(m.to, addr)
 }
 
-func (m *Mail) Cc(addr *Address) {
+func (m *Mail) Cc(addr *Addr) {
 	m.cc = append(m.cc, addr)
 }
 
-func (m *Mail) Bcc(addr *Address) {
+func (m *Mail) Bcc(addr *Addr) {
 	m.bcc = append(m.bcc, addr)
 }
 
-func (m *Mail) ReturnPath(addr *Address) {
+func (m *Mail) ReturnPath(addr *Addr) {
 	m.returnPath = addr
 }
 
-func (m *Mail) ReplyTo(addr *Address) {
+func (m *Mail) ReplyTo(addr *Addr) {
 	m.replyTo = addr
 }
 
@@ -98,11 +99,11 @@ func (m *Mail) Subject(subject string) {
 	m.subject = template.Must(template.New("Subject").Parse(subject))
 }
 
-func (m *Mail) Body(body string) {
-	body = strings.ReplaceAll(body, "\r\n", "\n")
-	body = strings.ReplaceAll(body, "\r", "\n")
-	body = strings.ReplaceAll(body, "\n", "\r\n")
-	m.body = template.Must(template.New("Body").Parse(body))
+func (m *Mail) Body(r io.Reader) {
+	body, _ := io.ReadAll(r)
+	rplr := strings.NewReplacer("\r\n", "\n", "\r", "\n", "\n", "\r\n")
+	bodyText := rplr.Replace(string(body))
+	m.body = template.Must(template.New("Body").Parse(bodyText))
 }
 
 func (m *Mail) Set(key string, val any) {
@@ -117,7 +118,7 @@ func (m *Mail) String() string {
 	// Headers
 	line.Reset()
 	for _, v := range m.headers {
-		line.WriteString(fmt.Sprintf("%s: %s\r\n", v.key, EncodeMimeString(v.val, true)))
+		line.WriteString(fmt.Sprintf("%s: %s\r\n", v.key, encodeMimeString(v.val, true)))
 		sb.WriteString(line.String())
 	}
 
@@ -126,9 +127,9 @@ func (m *Mail) String() string {
 	// Date
 	sb.WriteString(fmt.Sprintf("Date: %s\r\n", time.Now().Format(time.RFC1123Z)))
 	// From
-	sb.WriteString(fmt.Sprintf("From: %s\r\n", EncodeMimeString(m.from.String(), true)))
+	sb.WriteString(fmt.Sprintf("From: %s\r\n", encodeMimeString(m.from.String(), true)))
 	// To, Cc
-	rcpts := map[string][]*Address{"To": m.to, "Cc": m.cc}
+	rcpts := map[string][]*Addr{"To": m.to, "Cc": m.cc}
 	for label, addrs := range rcpts {
 		if len(addrs) == 0 {
 			continue
@@ -157,10 +158,10 @@ func (m *Mail) String() string {
 	}
 	buf := bytes.NewBuffer([]byte{})
 	m.subject.Execute(buf, m.vars)
-	subject := EncodeMimeString(buf.String(), true)
+	subject := encodeMimeString(buf.String(), true)
 	line.Reset()
 	line.WriteString("Subject: ")
-	line.WriteString(EncodeMimeString(subject, true))
+	line.WriteString(encodeMimeString(subject, true))
 	line.WriteString("\r\n")
 	sb.WriteString(line.String())
 
