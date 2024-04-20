@@ -30,7 +30,7 @@ func newDsn(str string) (*dsn, error) {
 		defaultPort = 465
 	case "smtp+tls":
 		sDsn.scheme = "smtp+tls"
-		defaultPort = 587
+		defaultPort = 25
 	default:
 		sDsn.scheme = "smtps"
 		defaultPort = 465

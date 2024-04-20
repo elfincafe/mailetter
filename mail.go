@@ -3,6 +3,7 @@ package mailetter
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"text/template"
 	"time"
@@ -98,11 +99,11 @@ func (m *Mail) Subject(subject string) {
 	m.subject = template.Must(template.New("Subject").Parse(subject))
 }
 
-func (m *Mail) Body(body string) {
-	body = strings.ReplaceAll(body, "\r\n", "\n")
-	body = strings.ReplaceAll(body, "\r", "\n")
-	body = strings.ReplaceAll(body, "\n", "\r\n")
-	m.body = template.Must(template.New("Body").Parse(body))
+func (m *Mail) Body(r io.Reader) {
+	body, _ := io.ReadAll(r)
+	rplr := strings.NewReplacer("\r\n", "\n", "\r", "\n", "\n", "\r\n")
+	bodyText := rplr.Replace(string(body))
+	m.body = template.Must(template.New("Body").Parse(bodyText))
 }
 
 func (m *Mail) Set(key string, val any) {

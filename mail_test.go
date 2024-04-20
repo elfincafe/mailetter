@@ -2,6 +2,7 @@ package mailetter
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -318,7 +319,7 @@ func TestMailString(t *testing.T) {
 		cc      []*Addr
 		bcc     []*Addr
 		subject string
-		body    string
+		body    io.Reader
 		vars    map[string]any
 	}{
 		{
@@ -327,7 +328,7 @@ func TestMailString(t *testing.T) {
 			[]*Addr{NewAddr("cc0@example.com", "受信者Cc0"), NewAddr("cc1@example.com", "受信者Cc1"), NewAddr("cc2@example.com", "受信者Cc2")},
 			[]*Addr{NewAddr("bcc0@example.com", "受信者Bcc0")},
 			"[{{.ServiceName}}] {{.Name}}様 新商品のお知らせ",
-			"{{.Name}}様\nいつもご利用ありがとうございます。\n{{.ServiceName}}カスタマーサポートでございます。",
+			strings.NewReader("{{.Name}}様\nいつもご利用ありがとうございます。\n{{.ServiceName}}カスタマーサポートでございます。"),
 			map[string]any{"ServiceName": "ECサービス", "Name": "ECサービスユーザー"},
 		},
 	}

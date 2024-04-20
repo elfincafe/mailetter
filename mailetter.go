@@ -8,8 +8,8 @@ import (
 const (
 	br          = "\r\n"
 	white_space = " \r\n\t\v\b"
-	should_br   = 78
-	must_br     = 998
+	shouldBr    = 78
+	mustBr      = 998
 )
 
 type MaiLetter struct {
@@ -27,7 +27,7 @@ func New(dsn string) (*MaiLetter, error) {
 	ml := new(MaiLetter)
 	ml.dsn = oDsn
 	ml.client = nil
-	ml.localName = "localhost.localdomain"
+	ml.localName = "localhost"
 	ml.tlsConfig = &tls.Config{
 		InsecureSkipVerify: true,
 		ServerName:         oDsn.Host(),
@@ -116,14 +116,14 @@ func (ml *MaiLetter) connect() error {
 	}
 	var err error
 	if ml.dsn.IsSsl() {
-		err = ml.connectWithTls()
+		err = ml.connectWithSsl()
 	} else {
-		err = ml.connectWithoutTls()
+		err = ml.connectWithoutSsl()
 	}
 	return err
 }
 
-func (ml *MaiLetter) connectWithoutTls() error {
+func (ml *MaiLetter) connectWithoutSsl() error {
 	client, err := smtp.Dial(ml.dsn.Socket())
 	if err != nil {
 		return err
@@ -132,7 +132,7 @@ func (ml *MaiLetter) connectWithoutTls() error {
 	return nil
 }
 
-func (ml *MaiLetter) connectWithTls() error {
+func (ml *MaiLetter) connectWithSsl() error {
 	conn, err := tls.Dial("tcp", ml.dsn.Socket(), ml.tlsConfig)
 	if err != nil {
 		return err
@@ -147,7 +147,7 @@ func (ml *MaiLetter) connectWithTls() error {
 
 func (ml *MaiLetter) connectAndStartTls() error {
 	var err error
-	err = ml.connectWithoutTls()
+	err = ml.connectWithoutSsl()
 	if err != nil {
 		return err
 	}

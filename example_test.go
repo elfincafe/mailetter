@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mailetter"
 	"os"
+	"strings"
 )
 
 func Example() {
@@ -18,11 +19,11 @@ func Example() {
 	bcc := mailetter.NewAddr("bcc@example.com", "Blind Carbon Copy Recipient ")
 	m.Bcc(bcc)
 	m.Subject("Example Subject")
-	body := `
+	body := strings.NewReader(`
 Dear {{.Name}}
 
 This is an example mail.
-`
+`)
 	m.Body(body)
 	m.Set("Name", "Recipient")
 	// Connecting and Sending mail
