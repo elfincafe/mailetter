@@ -12,19 +12,19 @@ const (
 	mustBr      = 998
 )
 
-type MaiLetter struct {
+type Client struct {
 	dsn       *dsn
 	client    *smtp.Client
 	localName string
 	tlsConfig *tls.Config
 }
 
-func New(dsn string) (*MaiLetter, error) {
+func New(dsn string) (*Client, error) {
 	oDsn, err := newDsn(dsn)
 	if err != nil {
 		return nil, err
 	}
-	ml := new(MaiLetter)
+	ml := new(Client)
 	ml.dsn = oDsn
 	ml.client = nil
 	ml.localName = "localhost"
@@ -35,11 +35,11 @@ func New(dsn string) (*MaiLetter, error) {
 	return ml, nil
 }
 
-func (ml *MaiLetter) LocalName(localName string) {
+func (ml *Client) LocalName(localName string) {
 	ml.localName = localName
 }
 
-func (ml *MaiLetter) Send(m *Mail) error {
+func (ml *Client) Send(m *Mail) error {
 
 	var err error
 	if err = ml.connect(); err != nil {
@@ -83,7 +83,7 @@ func (ml *MaiLetter) Send(m *Mail) error {
 	return nil
 }
 
-func (ml *MaiLetter) Reset() error {
+func (ml *Client) Reset() error {
 	err := ml.client.Reset()
 	if err != nil {
 		return err
@@ -91,18 +91,18 @@ func (ml *MaiLetter) Reset() error {
 	return nil
 }
 
-func (ml *MaiLetter) Quit() error {
+func (ml *Client) Quit() error {
 	return ml.client.Quit()
 }
 
-func (ml *MaiLetter) Close() error {
+func (ml *Client) Close() error {
 	if ml.client != nil {
 		return ml.client.Close()
 	}
 	return nil
 }
 
-func (ml *MaiLetter) isConnected() bool {
+func (ml *Client) isConnected() bool {
 	if ml.client != nil {
 		return true
 	} else {
@@ -110,7 +110,7 @@ func (ml *MaiLetter) isConnected() bool {
 	}
 }
 
-func (ml *MaiLetter) connect() error {
+func (ml *Client) connect() error {
 	if ml.isConnected() {
 		return nil
 	}
@@ -123,7 +123,7 @@ func (ml *MaiLetter) connect() error {
 	return err
 }
 
-func (ml *MaiLetter) connectWithoutSsl() error {
+func (ml *Client) connectWithoutSsl() error {
 	client, err := smtp.Dial(ml.dsn.Socket())
 	if err != nil {
 		return err
@@ -132,7 +132,7 @@ func (ml *MaiLetter) connectWithoutSsl() error {
 	return nil
 }
 
-func (ml *MaiLetter) connectWithSsl() error {
+func (ml *Client) connectWithSsl() error {
 	conn, err := tls.Dial("tcp", ml.dsn.Socket(), ml.tlsConfig)
 	if err != nil {
 		return err
@@ -145,7 +145,7 @@ func (ml *MaiLetter) connectWithSsl() error {
 	return nil
 }
 
-func (ml *MaiLetter) connectAndStartTls() error {
+func (ml *Client) connectAndStartTls() error {
 	var err error
 	err = ml.connectWithoutSsl()
 	if err != nil {
