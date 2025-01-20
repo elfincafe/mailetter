@@ -2,7 +2,7 @@ version: "3.9"
 services:
   app:
     image: localhost/mailetter:dev
-    container_name: MaiLetterApp
+    container_name: MaiLetterDev
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
@@ -11,9 +11,7 @@ services:
     networks:
       - mailetter
     volumes:
-      - type: bind
-        source: ..
-        target: /usr/local/mailetter/src
+      - ..:/usr/local/mailetter/src
     environment:
       - TZ=Asia/Tokyo
       - EDITOR=vi

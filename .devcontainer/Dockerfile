@@ -1,24 +1,23 @@
-FROM docker.io/library/golang:1.22-alpine3.19
+FROM docker.io/library/alpine:3.21.2
 
-LABEL version="0.1.0"
-LABEL description="MaiLetter Laibrary for Go"
-LABEL maintainer="Takamichi Seki <takamichi.seki@tsukinoha.jp>"
 
-ENV GOROOT /usr/local/go
 ENV GOPATH /usr/local/mailetter
-ENV PATH $GOPATH/bin:$PATH
+ENV PATH ${GOPATH}/bin:$PATH
+ENV PS1 "[\A]\u@mailtr:\W\$ "
+ENV STAGE dev
 
-RUN mv /go ${GOROOT} && \
-    apk update && \
+RUN apk update && \
     apk add doas \
-	        vim && \
-    adduser -u 2000 -G users -D -H zlkv && \
-    echo -e "permit nopass :root\npermit nopass :wheel\n" > /etc/doas.conf && \
+	        vim \
+            go && \
+    rm -rf /var/cache/apk/* && \
+    adduser -u 2000 -D -h /home/dev -G users dev && \
+    addgroup dev wheel && \
+    echo -e "permit nopass :root\npermit nopass :wheel\n" > /etc/doas.d/doas.conf && \
 	mkdir -p ${GOPATH}/bin ${GOPATH}/pkg && \
-    chown -R zlkv:users ${GOPATH}
+    chown -R zlkv:users ${GOPATH}/bin ${GOPATH}/pkg
 
-USER zlkv
-ENV PS1="[\A]\u@\h:\W\$ "
+USER dev
+RUN go install golang.org/x/tools/cmd/goimports@latest
 WORKDIR ${GOPATH}/src
-CMD ["/bin/sh"]
 
