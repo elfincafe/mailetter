@@ -1,13 +1,15 @@
 package mailetter
 
-type Auth struct {
-	user     string
-	password string
-}
+import "net/smtp"
 
-func NewAuth(user string, password string) *Auth {
-	a := new(Auth)
-	a.user = user
-	a.password = password
-	return a
-}
+type (
+	AuthInterface interface {
+		smtp.Auth
+	}
+	PlainAuth struct {
+		auth smtp.Auth
+	}
+	CramMd5Auth struct {
+		auth smtp.Auth
+	}
+)

@@ -2,6 +2,7 @@ package mailetter
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net/smtp"
 )
 
@@ -14,29 +15,81 @@ const (
 
 type Client struct {
 	dsn       *dsn
-	client    *smtp.Client
+	conn      *smtp.Client
 	localName string
-	tlsConfig *tls.Config
+	auth      AuthInterface
+	from      *Address
+	to        []*Address
+	cc        []*Address
+	bcc       []*Address
+	subj      string
+	body      string
 }
 
-func New(dsn string) (*Client, error) {
-	oDsn, err := newDsn(dsn)
-	if err != nil {
-		return nil, err
-	}
-	ml := new(Client)
-	ml.dsn = oDsn
-	ml.client = nil
-	ml.localName = "localhost"
-	ml.tlsConfig = &tls.Config{
-		InsecureSkipVerify: true,
-		ServerName:         oDsn.Host(),
-	}
-	return ml, nil
+func New(dsnStr string) *Client {
+	c := new(Client)
+	c.dsn = newDsn(dsnStr)
+	c.conn = nil
+	c.localName = "localhost"
+	c.auth = nil
+	c.from = nil
+	c.to = []*Address{}
+	c.cc = []*Address{}
+	c.bcc = []*Address{}
+	c.subj = ""
+	c.body = ""
+	return c
 }
 
-func (ml *Client) LocalName(localName string) {
-	ml.localName = localName
+func (c *Client) LocalName(localName string) {
+	c.localName = localName
+}
+
+func (c *Client) Auth(auth AuthInterface) {
+	c.auth = auth
+}
+
+func (c *Client) From(addr, name string) error {
+	c.from = NewAddress(addr, name)
+	if err := c.from.parse(); err != nil {
+		return fmt.Errorf(`the addess for "From:" is invalid (%s)`, err.Error())
+	}
+	return nil
+}
+
+func (c *Client) To(addr, name string) error {
+	to := NewAddress(addr, name)
+	if err := to.parse(); err != nil {
+		return fmt.Errorf(`the addess for "To:" is invalid (%s)`, err.Error())
+	}
+	c.to = append(c.to, to)
+	return nil
+}
+
+func (c *Client) Cc(addr, name string) error {
+	cc := NewAddress(addr, name)
+	if err := cc.parse(); err != nil {
+		return fmt.Errorf(`the addess for "Cc:" is invalid (%s)`, err.Error())
+	}
+	c.cc = append(c.cc, cc)
+	return nil
+}
+
+func (c *Client) Bcc(addr, name string) error {
+	bcc := NewAddress(addr, name)
+	if err := bcc.parse(); err != nil {
+		return fmt.Errorf(`the addess for "Bcc:" is invalid (%s)`, err.Error())
+	}
+	c.bcc = append(c.bcc, bcc)
+	return nil
+}
+
+func (c *Client) Subject(subject string) {
+	c.subj = subject
+}
+
+func (c *Client) Body(body string) {
+	c.body = body
 }
 
 func (ml *Client) Send(m *Mail) error {
@@ -47,21 +100,21 @@ func (ml *Client) Send(m *Mail) error {
 	}
 
 	// Hello
-	err = ml.client.Hello(ml.localName)
+	err = ml.conn.Hello(ml.localName)
 	if err != nil {
 		return err
 	}
 
 	// Mail From
-	err = ml.client.Mail(m.from.addr)
+	err = ml.conn.Mail(m.from.addr)
 	if err != nil {
 		return err
 	}
 
 	// Rcpt To
-	for _, addrs := range [][]*Addr{m.to, m.cc, m.bcc} {
+	for _, addrs := range [][]*Address{m.to, m.cc, m.bcc} {
 		for _, a := range addrs {
-			err = ml.client.Rcpt(a.addr)
+			err = ml.conn.Rcpt(a.addr)
 			if err != nil {
 				return err
 			}
@@ -69,7 +122,7 @@ func (ml *Client) Send(m *Mail) error {
 	}
 
 	// Data
-	wc, err := ml.client.Data()
+	wc, err := ml.conn.Data()
 	if err != nil {
 		return err
 	}
@@ -83,77 +136,66 @@ func (ml *Client) Send(m *Mail) error {
 	return nil
 }
 
-func (ml *Client) Reset() error {
-	err := ml.client.Reset()
-	if err != nil {
-		return err
-	}
-	return nil
+func (c *Client) Close() error {
+	return c.conn.Quit()
 }
 
-func (ml *Client) Quit() error {
-	return ml.client.Quit()
-}
-
-func (ml *Client) Close() error {
-	if ml.client != nil {
-		return ml.client.Close()
-	}
-	return nil
-}
-
-func (ml *Client) isConnected() bool {
-	if ml.client != nil {
+func (c *Client) isConnected() bool {
+	if c.conn != nil {
 		return true
 	} else {
 		return false
 	}
 }
 
-func (ml *Client) connect() error {
-	if ml.isConnected() {
+func (c *Client) connect() error {
+	if c.isConnected() {
 		return nil
 	}
-	var err error
-	if ml.dsn.IsSsl() {
-		err = ml.connectWithSsl()
-	} else {
-		err = ml.connectWithoutSsl()
+	err := c.dsn.parse()
+	if err != nil {
+		return err
 	}
+	switch c.dsn.scheme {
+	case "smtps":
+		c.conn, err = c.connectSmtps(c.dsn)
+	case "smtp+tls":
+		c.conn, err = c.connectWithTls(c.dsn)
+	case "smtp":
+		c.conn, err = c.connectSmtp(c.dsn)
+	}
+
 	return err
 }
 
-func (ml *Client) connectWithoutSsl() error {
-	client, err := smtp.Dial(ml.dsn.Socket())
-	if err != nil {
-		return err
+func (c *Client) connectSmtps(d *dsn) (*smtp.Client, error) {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         d.host,
 	}
-	ml.client = client
-	return nil
+	conn, err := tls.Dial("tcp", d.Socket(), tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+	return smtp.NewClient(conn, d.host)
 }
 
-func (ml *Client) connectWithSsl() error {
-	conn, err := tls.Dial("tcp", ml.dsn.Socket(), ml.tlsConfig)
-	if err != nil {
-		return err
-	}
-	client, err := smtp.NewClient(conn, ml.dsn.Host())
-	if err != nil {
-		return err
-	}
-	ml.client = client
-	return nil
+func (c *Client) connectSmtp(d *dsn) (*smtp.Client, error) {
+	return smtp.Dial(d.Socket())
 }
 
-func (ml *Client) connectAndStartTls() error {
-	var err error
-	err = ml.connectWithoutSsl()
+func (c *Client) connectWithTls(d *dsn) (*smtp.Client, error) {
+	conn, err := c.connectSmtp(d)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = ml.client.StartTLS(ml.tlsConfig)
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         d.host,
+	}
+	err = conn.StartTLS(tlsConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return conn, nil
 }
