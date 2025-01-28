@@ -18,6 +18,7 @@ type Client struct {
 	conn      *smtp.Client
 	localName string
 	auth      AuthInterface
+	mail      *Mail
 	from      *Address
 	to        []*Address
 	cc        []*Address
