@@ -3,7 +3,6 @@ package mailetter
 import (
 	"fmt"
 	"net/mail"
-	"strings"
 )
 
 type Address struct {
@@ -11,9 +10,9 @@ type Address struct {
 	name string
 }
 
-func NewAddress(address, name string) *Address {
-	address = strings.Trim(address, white_space)
-	name = strings.Trim(name, white_space)
+func newAddress(address, name string) *Address {
+	address = removeBreak(address)
+	name = removeBreak(name)
 	a := new(Address)
 	a.addr = address
 	a.name = name

@@ -7,6 +7,22 @@ import (
 	"strings"
 )
 
+const (
+	PprodctName = "MaiLetter Mail Client"
+	Version     = "0.2.1"
+	br          = "\r\n"
+	whiteSpace  = " \r\n\t\v\b"
+	shouldBr    = 78
+	mustBr      = 998
+)
+
+func removeBreak(s string) string {
+	for _, search := range []string{"\r", "\n"} {
+		s = strings.ReplaceAll(s, search, "")
+	}
+	return s
+}
+
 func encodeMime(b []byte, flg bool) []byte {
 	needsEnc := false
 	for _, v := range b {

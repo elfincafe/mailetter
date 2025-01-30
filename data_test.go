@@ -25,18 +25,18 @@ func TestNewMail(t *testing.T) {
 func TestMailReset(t *testing.T) {
 	cases := []struct {
 		headers map[string]header
-		to      []*Addr
-		cc      []*Addr
-		bcc     []*Addr
+		to      []*Address
+		cc      []*Address
+		bcc     []*Address
 		subject *template.Template
 		body    *template.Template
 		vars    map[string]any
 	}{
 		{
 			map[string]header{"test-header": header{"Test-Header", "Test Header Value"}},
-			[]*Addr{NewAddr("To Address", "to@example.com")},
-			[]*Addr{NewAddr("Cc Address", "cc@example.com")},
-			[]*Addr{NewAddr("Bcc Address", "bcc@example.com")},
+			[]*Address{NewAddr("To Address", "to@example.com")},
+			[]*Address{NewAddr("Cc Address", "cc@example.com")},
+			[]*Address{NewAddr("Bcc Address", "bcc@example.com")},
 			template.Must(template.New("Subject").Parse("Dear. {{.Name}}")),
 			template.Must(template.New("Body").Parse("")),
 			map[string]any{"Name": "Example User"},
@@ -178,8 +178,8 @@ func TestMailBcc(t *testing.T) {
 
 func TestMailReplyTo(t *testing.T) {
 	cases := []struct {
-		from  *Addr
-		reply *Addr
+		from  *Address
+		reply *Address
 	}{
 		{
 			NewAddr("from@example.com", ""),
@@ -202,8 +202,8 @@ func TestMailReplyTo(t *testing.T) {
 
 func TestMailReturnPath(t *testing.T) {
 	cases := []struct {
-		from *Addr
-		ret  *Addr
+		from *Address
+		ret  *Address
 	}{
 		{
 			NewAddr("from@example.com", ""),
@@ -315,18 +315,18 @@ func TestMailSet(t *testing.T) {
 func TestMailString(t *testing.T) {
 	cases := []struct {
 		headers map[string]header
-		to      []*Addr
-		cc      []*Addr
-		bcc     []*Addr
+		to      []*Address
+		cc      []*Address
+		bcc     []*Address
 		subject string
 		body    io.Reader
 		vars    map[string]any
 	}{
 		{
 			map[string]header{"test-header": {"Test-Header", "Test Header Value"}},
-			[]*Addr{NewAddr("to0@example.com", "受信者To0"), NewAddr("to1@example.com", "受信者To1")},
-			[]*Addr{NewAddr("cc0@example.com", "受信者Cc0"), NewAddr("cc1@example.com", "受信者Cc1"), NewAddr("cc2@example.com", "受信者Cc2")},
-			[]*Addr{NewAddr("bcc0@example.com", "受信者Bcc0")},
+			[]*Address{NewAddr("to0@example.com", "受信者To0"), NewAddr("to1@example.com", "受信者To1")},
+			[]*Address{NewAddr("cc0@example.com", "受信者Cc0"), NewAddr("cc1@example.com", "受信者Cc1"), NewAddr("cc2@example.com", "受信者Cc2")},
+			[]*Address{NewAddr("bcc0@example.com", "受信者Bcc0")},
 			"[{{.ServiceName}}] {{.Name}}様 新商品のお知らせ",
 			strings.NewReader("{{.Name}}様\nいつもご利用ありがとうございます。\n{{.ServiceName}}カスタマーサポートでございます。"),
 			map[string]any{"ServiceName": "ECサービス", "Name": "ECサービスユーザー"},

@@ -4,13 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/smtp"
-)
-
-const (
-	br          = "\r\n"
-	white_space = " \r\n\t\v\b"
-	shouldBr    = 78
-	mustBr      = 998
+	"strings"
 )
 
 type Client struct {
@@ -18,13 +12,7 @@ type Client struct {
 	conn      *smtp.Client
 	localName string
 	auth      AuthInterface
-	mail      *Mail
-	from      *Address
-	to        []*Address
-	cc        []*Address
-	bcc       []*Address
-	subj      string
-	body      string
+	data      *data
 }
 
 func New(dsnStr string) *Client {
@@ -33,12 +21,9 @@ func New(dsnStr string) *Client {
 	c.conn = nil
 	c.localName = "localhost"
 	c.auth = nil
-	c.from = nil
-	c.to = []*Address{}
-	c.cc = []*Address{}
-	c.bcc = []*Address{}
-	c.subj = ""
-	c.body = ""
+	data := newData()
+	data.reset()
+	c.data = data
 	return c
 }
 
@@ -50,72 +35,63 @@ func (c *Client) Auth(auth AuthInterface) {
 	c.auth = auth
 }
 
+func (c *Client) Header(key, value string) error {
+	return c.data.setHeader(key, value)
+}
+
 func (c *Client) From(addr, name string) error {
-	c.from = NewAddress(addr, name)
-	if err := c.from.parse(); err != nil {
-		return fmt.Errorf(`the addess for "From:" is invalid (%s)`, err.Error())
-	}
-	return nil
+	return c.data.setFrom(newAddress(addr, name))
 }
 
 func (c *Client) To(addr, name string) error {
-	to := NewAddress(addr, name)
-	if err := to.parse(); err != nil {
-		return fmt.Errorf(`the addess for "To:" is invalid (%s)`, err.Error())
-	}
-	c.to = append(c.to, to)
-	return nil
+	return c.data.setTo(newAddress(addr, name))
 }
 
 func (c *Client) Cc(addr, name string) error {
-	cc := NewAddress(addr, name)
-	if err := cc.parse(); err != nil {
-		return fmt.Errorf(`the addess for "Cc:" is invalid (%s)`, err.Error())
-	}
-	c.cc = append(c.cc, cc)
-	return nil
+	return c.data.setCc(newAddress(addr, name))
 }
 
 func (c *Client) Bcc(addr, name string) error {
-	bcc := NewAddress(addr, name)
-	if err := bcc.parse(); err != nil {
-		return fmt.Errorf(`the addess for "Bcc:" is invalid (%s)`, err.Error())
-	}
-	c.bcc = append(c.bcc, bcc)
-	return nil
+	return c.data.setBcc(newAddress(addr, name))
 }
 
 func (c *Client) Subject(subject string) {
-	c.subj = subject
+	c.data.setSubject(subject)
 }
 
 func (c *Client) Body(body string) {
-	c.body = body
+	c.data.setBody(strings.NewReader(body))
 }
 
-func (ml *Client) Send(m *Mail) error {
+func (c *Client) Send() error {
 
 	var err error
-	if err = ml.connect(); err != nil {
+	if err = c.connect(); err != nil {
 		return err
 	}
 
 	// Hello
-	err = ml.conn.Hello(ml.localName)
+	err = c.conn.Hello(c.localName)
 	if err != nil {
 		return err
 	}
 
 	// Mail From
-	err = ml.conn.Mail(m.from.addr)
+	if c.data.from == nil {
+		return fmt.Errorf(`a from address is required`)
+	}
+	err = c.conn.Mail(c.data.from.Angle())
 	if err != nil {
 		return err
 	}
 
 	// Rcpt To
-	for _, addrs := range [][]*Address{m.to, m.cc, m.bcc} {
+	if len(c.data.to) == 0 {
+		return fmt.Errorf(`at least one recipient is required`)
+	}
+	for _, addrs := range [][]*Address{c.data.to, c.data.cc, c.data.bcc} {
 		for _, a := range addrs {
-			err = ml.conn.Rcpt(a.addr)
+			err = c.conn.Rcpt(a.Angle())
 			if err != nil {
 				return err
 			}
@@ -123,12 +99,12 @@ func (ml *Client) Send(m *Mail) error {
 	}
 
 	// Data
-	wc, err := ml.conn.Data()
+	wc, err := c.conn.Data()
 	if err != nil {
 		return err
 	}
 	// fmt.Println(ml.mail.create())
-	_, err = wc.Write([]byte(m.String()))
+	_, err = wc.Write([]byte(c.data.String()))
 	if err != nil {
 		return err
 	}
