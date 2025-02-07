@@ -9,55 +9,54 @@ import (
 	"text/template"
 )
 
-func TestNewMail(t *testing.T) {
-	from := NewAddr("from@example.com", "Sender")
-	m := NewMail(from)
-	typ := reflect.TypeOf(m)
-	expect := reflect.TypeOf((*Mail)(nil)).String()
-	if typ.String() != expect {
-		t.Errorf("[Case%d] Type: %s != %s", 0, typ.String(), expect)
+func TestNewData(t *testing.T) {
+	data := newData()
+	if data == nil {
+		t.Errorf(`Data struct is empty`)
 	}
-	if m.from != from {
-		t.Errorf("[Case%d] From: %v != %v", 1, m.from, from)
+	if len(data.headers) == 0 || len(data.hdrOrder) == 0 {
+		t.Errorf(`Data struct headers should be empty (Headers: %d, Orders: %d)`, len(data.headers), len(data.hdrOrder))
+	}
+	if data.from != nil {
+		t.Errorf(`"From" should be empty %v`, data.from)
+	}
+	if data.returnPath != nil {
+		t.Errorf(`"Return-Path" should be empty %v`, data.returnPath)
+	}
+	if data.replyTo != nil {
+		t.Errorf(`"Reply-To" should be empty %v`, data.replyTo)
+	}
+	if len(data.to) != 0 {
+		t.Errorf(`"To" should be empty %v`, data.to)
+	}
+	if len(data.cc) != 0 {
+		t.Errorf(`"Cc" should be empty %v`, data.cc)
+	}
+	if len(data.bcc) != 0 {
+		t.Errorf(`"Bcc" should be empty %v`, data.bcc)
+	}
+	if data.subject != nil {
+		t.Errorf(`"Subject" should be empty %v`, data.subject)
+	}
+	if data.body != nil {
+		t.Errorf(`Body should be empty %v`, data.body)
+	}
+	if len(data.vars) != 0 {
+		t.Errorf(`Variables should be empty %v`, data.vars)
 	}
 }
 
-func TestMailReset(t *testing.T) {
-	cases := []struct {
-		headers map[string]header
-		to      []*Address
-		cc      []*Address
-		bcc     []*Address
-		subject *template.Template
-		body    *template.Template
-		vars    map[string]any
-	}{
-		{
-			map[string]header{"test-header": header{"Test-Header", "Test Header Value"}},
-			[]*Address{NewAddr("To Address", "to@example.com")},
-			[]*Address{NewAddr("Cc Address", "cc@example.com")},
-			[]*Address{NewAddr("Bcc Address", "bcc@example.com")},
-			template.Must(template.New("Subject").Parse("Dear. {{.Name}}")),
-			template.Must(template.New("Body").Parse("")),
-			map[string]any{"Name": "Example User"},
-		},
-	}
-	from := NewAddr("from@example.com", "From Address")
-	m := NewMail(from)
-	for k, v := range cases {
-		m.headers = v.headers
-		m.to = v.to
-		m.cc = v.cc
-		m.bcc = v.bcc
-		m.subject = v.subject
-		m.body = v.body
-		m.vars = v.vars
-		m.Reset()
-		if len(m.headers) != 0 || len(m.to) != 0 || len(m.cc) != 0 || len(m.bcc) != 0 || m.subject != nil || m.body != nil || len(m.vars) != 0 {
-			t.Errorf("[Case%d] Header:%v, To:%v, Cc:%v, Bcc:%v, Subject:%v, Body:%v, Vars:%v", k, m.headers, m.to, m.cc, m.bcc, m.subject, m.body, m.vars)
-		}
-
-	}
+func TestDataReset(t *testing.T) {
+	data := newData()
+	data.headers["xtest"] = header{key: "X-Test", value: "X Test Value"}
+	data.hdrOrder = append(data.hdrOrder, "xtest")
+	data.from = newAddress("from@example.com", "FromAddress")
+	data.to = append(data.to, newAddress("to@example.com", "ToAddress"))
+	data.cc = append(data.cc, newAddress("cc@example.com", "CcAddress"))
+	data.bcc = append(data.bcc, newAddress("bcc@example.com", "BccAddress"))
+	data.subject = template.Must(template.New("Subject").Parse("Test Subject"))
+	data.body = template.Must(template.New("Body").Parse("Test Body"))
+	data.vars["Test"] = "test value"
 }
 
 func TestMailHeader(t *testing.T) {

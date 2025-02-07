@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/rand"
+	"net/smtp"
 	"strings"
 )
 
@@ -14,6 +15,12 @@ const (
 	whiteSpace  = " \r\n\t\v\b"
 	shouldBr    = 78
 	mustBr      = 998
+)
+
+type (
+	AuthInterface interface {
+		smtp.Auth
+	}
 )
 
 func removeBreak(s string) string {
@@ -86,4 +93,8 @@ func border(length int) string {
 		sb.WriteString(s[idx])
 	}
 	return sb.String()
+}
+
+func isLocalhost(name string) bool {
+	return name == "localhost" || name == "127.0.0.1" || name == "::1"
 }

@@ -16,6 +16,7 @@ type (
 	}
 	data struct {
 		headers    map[string]header
+		hdrOrder   []string
 		from       *Address
 		returnPath *Address
 		replyTo    *Address
@@ -30,9 +31,6 @@ type (
 
 func newData() *data {
 	d := new(data)
-	d.from = nil
-	d.returnPath = nil
-	d.replyTo = nil
 	d.reset()
 	return d
 }
@@ -53,22 +51,33 @@ func (d *data) setHeader(key, value string) error {
 	key = strings.ReplaceAll(key, ":", "")
 	value = removeBreak(value)
 	excepts := map[string]bool{
-		"content-type": true,
-		"date":         true,
-		"from":         true,
-		"reply-to":     true,
-		"return-path":  true,
-		"to":           true,
-		"cc":           true,
-		"bcc":          true,
-		"subject":      true,
+		"contenttype": true,
+		"date":        true,
+		"from":        true,
+		"replyto":     true,
+		"returnpath":  true,
+		"to":          true,
+		"cc":          true,
+		"bcc":         true,
+		"subject":     true,
 	}
 	lowerKey := strings.ToLower(key)
+	lowerKey = strings.ReplaceAll(lowerKey, "-", "")
 	if _, ok := excepts[lowerKey]; ok {
 		return fmt.Errorf(`a header key "%s" is reserved`, key)
 	}
 
 	d.headers[lowerKey] = header{key: key, value: value}
+	exists := false
+	for _, v := range d.hdrOrder {
+		if v == key {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		d.hdrOrder = append(d.hdrOrder, key)
+	}
 	return nil
 }
 

@@ -1,15 +1,31 @@
 package mailetter
 
-import "net/smtp"
+import (
+	"encoding/base64"
+	"errors"
+	"net/smtp"
+)
 
 type (
-	AuthInterface interface {
-		smtp.Auth
-	}
-	PlainAuth struct {
-		auth smtp.Auth
-	}
-	CramMd5Auth struct {
-		auth smtp.Auth
+	Login struct {
+		username string
+		password string
 	}
 )
+
+func (auth *Login) Start(server *smtp.ServerInfo) (string, []byte, error) {
+	if !server.TLS && !isLocalhost(server.Name) {
+		return "", nil, errors.New("unencrypted connection")
+	}
+	dst := make([]byte, base64.StdEncoding.EncodedLen(len(auth.username)))
+	base64.StdEncoding.Encode(dst, []byte(auth.username))
+	return "LOGIN", dst, nil
+}
+
+func (auth *Login) Next(fromServer []byte, more bool) ([]byte, error) {
+	dst := make([]byte, base64.StdEncoding.EncodedLen(len(auth.password)))
+	if more {
+		base64.StdEncoding.Encode(dst, []byte(auth.password))
+	}
+	return dst, nil
+}
