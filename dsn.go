@@ -7,62 +7,59 @@ import (
 	"strings"
 )
 
-type dsn struct {
-	dsn    string
-	scheme string
-	host   string
-	port   int
-}
+type (
+	dsn struct {
+		dsnStr string
+		scheme string
+		host   string
+		port   int
+		socket string
+	}
+)
 
 func newDsn(dsnStr string) *dsn {
 	d := new(dsn)
-	d.dsn = strings.ToLower(strings.TrimSpace(dsnStr))
+	d.dsnStr = strings.ToLower(strings.TrimSpace(dsnStr))
 	d.scheme = ""
 	d.host = ""
 	d.port = 0
+	d.socket = ""
 	return d
 }
 
 func (d *dsn) parse() error {
-	u, err := url.Parse(d.dsn)
+	scheme, host, port := "", "", 0
+	u, err := url.Parse(d.dsnStr)
 	if err != nil {
 		return err
 	}
-	defaultPort := 0
 	switch u.Scheme {
 	case "smtp":
-		d.scheme = "smtp"
-		defaultPort = 25
+		fallthrough
 	case "smtps":
-		d.scheme = "smtps"
-		defaultPort = 465
+		fallthrough
 	case "smtp+tls":
-		d.scheme = "smtp+tls"
-		defaultPort = 25
+		scheme = u.Scheme
+	default:
+		return fmt.Errorf(`scheme must be one of "smtp", "smtps", or "smtp+tls"`)
 	}
-	if d.scheme == "" {
-		return fmt.Errorf(`the scheme must be one of "smtp", "smtps", or "smtp+tls"`)
-	}
-	d.host = u.Hostname()
-	if d.host == "" {
-		return fmt.Errorf(`the host must be ether hostname or ip address`)
+	host = u.Hostname()
+	if host == "" {
+		return fmt.Errorf(`host must be ether hostname or ip address`)
 	}
 	if u.Port() != "" {
-		port, err := strconv.ParseInt(u.Port(), 10, 32)
-		if err != nil || port < 1 {
-			return fmt.Errorf(`the port must be positive integer`)
+		tmpPort, err := strconv.ParseUint(u.Port(), 10, 32)
+		if err != nil || port > 65535 {
+			return fmt.Errorf(`port must be 0 - 65535`)
 		}
-		d.port = int(port)
+		port = int(tmpPort)
 	} else {
-		d.port = defaultPort
+		return fmt.Errorf(`port must be 0 - 65535`)
 	}
+	d.dsnStr = u.String()
+	d.scheme = scheme
+	d.host = host
+	d.port = port
+	d.socket = u.Host
 	return nil
-}
-
-func (dsn *dsn) Socket() string {
-	return fmt.Sprintf("%s:%d", dsn.host, dsn.port)
-}
-
-func (dsn *dsn) IsSsl() bool {
-	return dsn.scheme == "smtps"
 }

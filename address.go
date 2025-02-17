@@ -5,36 +5,44 @@ import (
 	"net/mail"
 )
 
-type Address struct {
-	addr string
-	name string
-}
+type (
+	Address struct {
+		address string
+		name    string
+	}
+)
 
 func newAddress(address, name string) *Address {
-	address = removeBreak(address)
-	name = removeBreak(name)
 	a := new(Address)
-	a.addr = address
-	a.name = name
+	a.address = removeBreak(address)
+	a.name = removeBreak(name)
 	return a
 }
 
+func (a *Address) parse() error {
+	_, err := mail.ParseAddress(fmt.Sprintf("%s <%s>", a.name, a.address))
+	if err != nil {
+		a.address = ""
+		a.name = ""
+		return err
+	}
+	return nil
+}
+
 func (a *Address) Angle() string {
-	return fmt.Sprintf("<%s>", a.addr)
+	if a.address == "" {
+		return ""
+	} else {
+		return fmt.Sprintf("<%s>", a.address)
+	}
 }
 
 func (a *Address) String() string {
-	if len(a.name) > 0 {
+	if a.address == "" {
+		return ""
+	} else if len(a.name) > 0 {
 		return fmt.Sprintf("%s %s", encodeMimeString(a.name, true), a.Angle())
 	} else {
 		return a.Angle()
 	}
-}
-
-func (a *Address) parse() error {
-	_, err := mail.ParseAddress(a.Angle())
-	if err != nil {
-		return err
-	}
-	return nil
 }

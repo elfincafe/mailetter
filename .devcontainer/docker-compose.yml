@@ -1,21 +1,21 @@
 version: "3.9"
 services:
   app:
-    image: localhost/mailttr:dev
-    container_name: MaiLttrDev
+    image: mailetter:dev
+    container_name: MaiLetterDev
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
-    hostname: mailttr
+    hostname: mailetter
     tty: true
     networks:
-      - mailttr
+      - mailetter
     volumes:
-      - ..:/usr/local/mailttr/src
+      - ..:/usr/local/mailetter/src
     environment:
       - TZ=Asia/Tokyo
       - EDITOR=vi
 networks:
-  mailttr:
+  mailetter:
 volumes:
-  mailttr:
+  mailetter:

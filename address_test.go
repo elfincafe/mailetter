@@ -2,161 +2,89 @@ package mailetter
 
 import (
 	"errors"
-	"fmt"
-	"reflect"
-	"strings"
 	"testing"
 )
 
 func TestNewAddress(t *testing.T) {
 	cases := []struct {
-		address string
-		name    string
-		typ     string
-		err     error
+		name     string
+		address  string
+		expected *Address
 	}{
 		{
-			"john@example.com",
+			"addr@example.com",
 			"John Smith",
-			"*mailetter.Address",
-			nil,
+			&Address{address: "addr@example.com", name: "John Smith"},
 		},
 		{
-			"jane@example.com",
-			"Jane Smith",
-			"*mailetter.Address",
-			nil,
+			"addr@example.com",
+			"山田 太郎",
+			&Address{address: "addr@example.com", name: "山田 太郎"},
 		},
 		{
-			"jane@example.com",
+			"addr@example.com",
 			"",
-			"*mailetter.Address",
-			nil,
+			&Address{address: "addr@example.com", name: ""},
 		},
-		{
-			"janeatexample.com",
+		{ // Not Mail
+			"addratexample.com",
 			"",
-			"",
-			errors.New(""),
+			&Address{address: "addratexample.com", name: ""},
 		},
 	}
 
-	for k, v := range cases {
-		a := NewAddr(v.address, v.name)
-		s := strings.Builder{}
-		s.WriteString(fmt.Sprintf("[Case%d] ", k))
-		length := len(s.String())
-		if a.addr != v.address {
-			msg := fmt.Sprintf("Addr: %s (%s), ", a.addr, v.address)
-			s.WriteString(msg)
+	for i, v := range cases {
+		a := newAddress(v.address, v.name)
+		if a.address != v.expected.address {
+			t.Errorf("[Case%d] Address Result:%v Expected:%v", i, a.address, v.expected.address)
 		}
-		if a.name != v.name {
-			msg := fmt.Sprintf("Name: %s (%s), ", a.name, v.name)
-			s.WriteString(msg)
-		}
-		typ := reflect.TypeOf(a).String()
-		if typ != v.typ {
-			msg := fmt.Sprintf("Type: %s (%s), ", typ, v.typ)
-			s.WriteString(msg)
-		}
-		if len(s.String()) > length {
-			t.Error(strings.TrimRight(s.String(), ", "))
+		if a.name != v.expected.name {
+			t.Errorf("[Case%d] Name Result:%v Expected:%v", i, a.name, v.expected.name)
 		}
 	}
 }
 
-func TestAddressAddress(t *testing.T) {
+func TestAddressParse(t *testing.T) {
 	cases := []struct {
-		name    string
-		address string
-		err     error
+		address    string
+		name       string
+		expAddress string
+		expName    string
+		expected   error
 	}{
 		{
-			"John Smith",
 			"john@example.com",
-			nil,
-		},
-		{
-			"Jane Smith",
-			"jane@example.com",
-			nil,
-		},
-		{
-			"",
-			"",
-			errors.New(""),
-		},
-	}
-
-	for k, v := range cases {
-		a := NewAddr(v.address, v.name)
-		s := strings.Builder{}
-		s.WriteString(fmt.Sprintf("[Case%d]", k))
-		length := len(s.String())
-		if a.addr != v.address {
-			s.WriteString(fmt.Sprintf("Addr: %s (%s), ", a.addr, v.address))
-		}
-		if len(s.String()) > length {
-			t.Error(strings.Trim(s.String(), ", "))
-		}
-	}
-}
-
-func TestAddressName(t *testing.T) {
-	cases := []struct {
-		name    string
-		address string
-		err     error
-	}{
-		{
-			"John Smith",
+			"John",
 			"john@example.com",
+			"John",
 			nil,
 		},
 		{
-			"Jane Smith",
-			"jane@example.com",
+			"john@example.com",
+			"",
+			"john@example.com",
+			"",
 			nil,
 		},
 		{
+			"0123456",
+			"Test",
 			"",
 			"",
-			errors.New(""),
+			errors.New("mail: missing @ in addr-spec"),
 		},
 	}
-
-	for k, v := range cases {
-		a := NewAddr(v.address, v.name)
-		s := strings.Builder{}
-		s.WriteString(fmt.Sprintf("[Case%d] ", k))
-		if a.name != v.name {
-			t.Errorf("[Case%d] %s != %s", k, a.name, v.name)
+	for i, c := range cases {
+		a := newAddress(c.address, c.name)
+		err := a.parse()
+		if a.address != c.expAddress {
+			t.Errorf(`[Case%d] Address Result: %v Expected: %v`, i, a.address, c.expAddress)
 		}
-	}
-}
-
-func TestAddressError(t *testing.T) {
-	cases := []struct {
-		addr string
-		name string
-		err  error
-	}{
-		{
-			"success@example.com",
-			"Success",
-			nil,
-		},
-		{
-			"failatexample.com",
-			"Fail",
-			errors.New(""),
-		},
-	}
-
-	for k, v := range cases {
-		a := NewAddr(v.addr, v.name)
-		if reflect.TypeOf(a.Error()) != reflect.TypeOf(v.err) {
-			t.Errorf(`[Case%d] %v (%v)`, k, reflect.TypeOf(a.Error()), reflect.TypeOf(v.err))
+		if a.name != c.expName {
+			t.Errorf(`[Case%d] Name Result: %v Expected: %v`, i, a.name, c.expName)
+		}
+		if c.expected != nil && err.Error() != c.expected.Error() {
+			t.Errorf(`[Case%d] Error Result: %v Expected: %v`, i, err, c.expected)
 		}
 	}
 }
@@ -171,32 +99,29 @@ func TestAddressAngle(t *testing.T) {
 			"<john@example.com>",
 		},
 		{
-			"jane@example.com",
-			"<jane@example.com>",
-		},
-		{
-			"taro@example.com",
-			"<taro@example.com>",
+			"janeatexample.com",
+			"",
 		},
 		{
 			"",
-			"<>",
+			"",
 		},
 	}
 
 	for k, v := range cases {
-		a := NewAddr(v.address, "")
-		if a.String() != v.expect {
-			t.Errorf("[Case%d] %s != %s", k, a.Angle(), v.expect)
+		a := newAddress(v.address, "")
+		_ = a.parse()
+		if a.Angle() != v.expect {
+			t.Errorf("[Case%d] Result:%v Expected:%v", k, a.Angle(), v.expect)
 		}
 	}
 }
 
 func TestAddressString(t *testing.T) {
 	cases := []struct {
-		name string
-		addr string
-		mime string
+		name     string
+		address  string
+		expected string
 	}{
 		{
 			"John Smith",
@@ -216,14 +141,14 @@ func TestAddressString(t *testing.T) {
 		{
 			"",
 			"",
-			"<>",
+			"",
 		},
 	}
 
-	for k, v := range cases {
-		a := NewAddr(v.addr, v.name)
-		if a.String() != v.mime {
-			t.Errorf("[Case%d] %s != %s", k, a.String(), v.mime)
+	for i, c := range cases {
+		a := newAddress(c.address, c.name)
+		if a.String() != c.expected {
+			t.Errorf("[Case%d] Result: %v Expected: %v", i, a.String(), c.expected)
 		}
 	}
 }
