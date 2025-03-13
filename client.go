@@ -7,13 +7,15 @@ import (
 	"strings"
 )
 
-type Client struct {
-	dsn       *dsn
-	conn      *smtp.Client
-	localName string
-	auth      smtp.Auth
-	data      *data
-}
+type (
+	Client struct {
+		dsn       *dsn
+		conn      *smtp.Client
+		localName string
+		auth      smtp.Auth
+		data      *data
+	}
+)
 
 func New(dsnStr string) *Client {
 	c := new(Client)
@@ -22,8 +24,8 @@ func New(dsnStr string) *Client {
 	c.localName = "localhost"
 	c.auth = nil
 	data := newData()
-	data.reset()
 	c.data = data
+	fmt.Println("Client.New", c)
 	return c
 }
 
@@ -92,7 +94,7 @@ func (c *Client) Send() error {
 	if c.data.from == nil {
 		return fmt.Errorf(`a from address is required`)
 	}
-	err = c.conn.Mail(c.data.from.addr)
+	err = c.conn.Mail(c.data.from.address)
 	if err != nil {
 		return err
 	}
@@ -104,7 +106,7 @@ func (c *Client) Send() error {
 	for _, addrs := range [][]*Address{c.data.to, c.data.cc, c.data.bcc} {
 		for _, a := range addrs {
 			fmt.Println(a.Angle())
-			err = c.conn.Rcpt(a.addr)
+			err = c.conn.Rcpt(a.address)
 			if err != nil {
 				return err
 			}
@@ -116,7 +118,7 @@ func (c *Client) Send() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(c.data.String())
+	fmt.Println(c.data.create())
 	_, err = wc.Write([]byte(c.data.String()))
 	if err != nil {
 		return err
@@ -154,11 +156,11 @@ func (c *Client) connect() error {
 	}
 	switch c.dsn.scheme {
 	case "smtps":
-		c.conn, err = c.connectSmtps(c.dsn)
+		c.conn, err = c.connectBySmtps(c.dsn)
 	case "smtp+tls":
 		c.conn, err = c.connectWithTls(c.dsn)
 	case "smtp":
-		c.conn, err = c.connectSmtp(c.dsn)
+		c.conn, err = c.connectBySmtp(c.dsn)
 	}
 	if err != nil {
 		fmt.Println("[1]", err)
@@ -183,12 +185,12 @@ func (c *Client) connect() error {
 	return err
 }
 
-func (c *Client) connectSmtps(d *dsn) (*smtp.Client, error) {
+func (c *Client) connectBySmtps(d *dsn) (*smtp.Client, error) {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
 		ServerName:         d.host,
 	}
-	conn, err := tls.Dial("tcp", d.Socket(), tlsConfig)
+	conn, err := tls.Dial("tcp", d.socket, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -196,12 +198,12 @@ func (c *Client) connectSmtps(d *dsn) (*smtp.Client, error) {
 	return smtp.NewClient(conn, d.host)
 }
 
-func (c *Client) connectSmtp(d *dsn) (*smtp.Client, error) {
-	return smtp.Dial(d.Socket())
+func (c *Client) connectBySmtp(d *dsn) (*smtp.Client, error) {
+	return smtp.Dial(d.socket)
 }
 
 func (c *Client) connectWithTls(d *dsn) (*smtp.Client, error) {
-	conn, err := c.connectSmtp(d)
+	conn, err := c.connectBySmtp(d)
 	if err != nil {
 		return nil, err
 	}
@@ -214,4 +216,9 @@ func (c *Client) connectWithTls(d *dsn) (*smtp.Client, error) {
 		return nil, err
 	}
 	return conn, nil
+}
+
+func (c *Client) String() string {
+	fmt.Println("Client.String()", c.data)
+	return c.data.String()
 }

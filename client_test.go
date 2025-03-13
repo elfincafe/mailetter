@@ -16,7 +16,7 @@ var (
 	dsnTls   = fmt.Sprintf("smtp+tls://%s:25", mailHost)
 )
 
-func TestMaiLetterNew(t *testing.T) {
+func TestClientNew(t *testing.T) {
 	cases := []struct {
 		dsn      string
 		expected string
@@ -35,7 +35,7 @@ func TestMaiLetterNew(t *testing.T) {
 		},
 	}
 	for k, v := range cases {
-		m, _ := New(v.dsn)
+		m := New(v.dsn)
 		if reflect.TypeOf(m).String() != v.expected {
 			t.Errorf(`[Case%d] %v`, k, reflect.TypeOf(m))
 		}
@@ -58,7 +58,7 @@ func TestMaiLetterLocalName(t *testing.T) {
 	}
 
 	for k, v := range cases {
-		m, _ := New(dsnSmtp)
+		m := New(dsnSmtp)
 		if v.call {
 			m.LocalName(v.name)
 		}
@@ -68,91 +68,96 @@ func TestMaiLetterLocalName(t *testing.T) {
 	}
 }
 
-func TestMaiLetterConnectWithTls(t *testing.T) {
+func TestClientAuthByPlain(t *testing.T) {
+
+}
+
+func TestClientAuthByLogin(t *testing.T) {
+
+}
+
+func TestClientAuthByCramMd5(t *testing.T) {
+
+}
+
+func TestClientHeader(t *testing.T) {
+
+}
+
+func TestClientFrom(t *testing.T) {
+
+}
+
+func TestClientTo(t *testing.T) {
+
+}
+
+func TestClientCc(t *testing.T) {
+
+}
+
+func TestClientBcc(t *testing.T) {
+
+}
+
+func TestClientSubject(t *testing.T) {
+
+}
+
+func TestClientBody(t *testing.T) {
+
+}
+
+func TestClientSet(t *testing.T) {
+
+}
+
+func TestClientSend(t *testing.T) {
 	cases := []struct {
-		dsn        string
-		clientType string
-		errMsg     string
+		dsn     string
+		from    *Address
+		to      []*Address
+		subject string
+		body    io.Reader
+		vals    map[string]any
 	}{
 		{
 			dsnSmtps,
-			"*smtp.Client",
-			"",
+			newAddress(fmt.Sprintf("from@%s", domain), "送信者"),
+			[]*Address{newAddress(fmt.Sprintf("to+1@%s", domain), "受信者")},
+			"テスト件名",
+			strings.NewReader("{{.Name}}"),
+			map[string]any{"Name": "Mr. Recipient"},
 		},
 	}
 	for k, v := range cases {
-		ml, _ := New(v.dsn)
-		err := ml.connectWithSsl()
-		if err != nil {
-			if !strings.Contains(err.Error(), v.errMsg) {
-				t.Errorf("[Case%d] %v", k, err)
-			}
-			continue
+		m := newData()
+		m.setFrom(v.from)
+		for _, t := range v.to {
+			m.setTo(t)
 		}
-		typ := reflect.TypeOf(ml.client).String()
-		if ml.client != nil && typ != v.clientType {
-			t.Errorf("[Case%d] %s (%s)", k, typ, v.clientType)
+		m.setSubject(v.subject)
+		m.setBody(v.body)
+		for key, val := range v.vals {
+			m.setValue(key, val)
+		}
+		ml := New(v.dsn)
+		err := ml.Send()
+		if err != nil {
+			t.Errorf("[Case%d] %v", k, err)
 		}
 	}
 }
 
-func TestMaiLetterConnectWithoutTls(t *testing.T) {
-	cases := []struct {
-		dsn        string
-		clientType string
-		errMsg     string
-	}{
-		{
-			dsnSmtp,
-			"*smtp.Client",
-			"",
-		},
-	}
-	for k, v := range cases {
-		ml, _ := New(v.dsn)
-		err := ml.connectWithoutSsl()
-		if err != nil {
-			if !strings.Contains(err.Error(), v.errMsg) {
-				t.Errorf("[Case%d] %v", k, err)
-			}
-			continue
-		}
-		typ := reflect.TypeOf(ml.client).String()
-		if ml.client != nil && typ != v.clientType {
-			t.Errorf("[Case%d] %s (%s)", k, typ, v.clientType)
-		}
-	}
+func TestClientReset(t *testing.T) {
+
 }
 
-func TestMaiLetterConnectAndStartTls(t *testing.T) {
-	cases := []struct {
-		dsn        string
-		clientType string
-		errMsg     string
-	}{
-		{
-			dsnTls,
-			"*smtp.Client",
-			"",
-		},
-	}
-	for k, v := range cases {
-		ml, _ := New(v.dsn)
-		err := ml.connectWithoutSsl()
-		if err != nil {
-			if !strings.Contains(err.Error(), v.errMsg) {
-				t.Errorf("[Case%d] %v", k, err)
-			}
-			continue
-		}
-		typ := reflect.TypeOf(ml.client).String()
-		if ml.client != nil && typ != v.clientType {
-			t.Errorf("[Case%d] %s (%s)", k, typ, v.clientType)
-		}
-	}
+func TestClientClose(t *testing.T) {
+	t.Errorf("Error")
 }
 
-func TestMaiLetterIsConnected(t *testing.T) {
+func TestClientIsConnect(t *testing.T) {
 	cases := []struct {
 		dsn       string
 		connected bool
@@ -168,51 +173,107 @@ func TestMaiLetterIsConnected(t *testing.T) {
 	}
 	k := 0
 	v := cases[k]
-	ml, _ := New(v.dsn)
+	ml := New(v.dsn)
 	if ml.isConnected() != v.connected {
 		t.Errorf("[Case%d] %v(%v)", k, ml.isConnected(), v.connected)
 	}
 	k = 1
 	v = cases[k]
-	ml, _ = New(v.dsn)
-	ml.connectWithoutSsl()
+	ml = New(v.dsn)
+	dsn := newDsn(v.dsn)
+	ml.connectBySmtp(dsn)
 	if ml.isConnected() != v.connected {
 		t.Errorf("[Case%d] %v(%v)", k, ml.isConnected(), v.connected)
 	}
 }
 
-func TestMaiLetterSend(t *testing.T) {
+func TestClientConnect(t *testing.T) {
+
+}
+
+func TestClientConnectBySmtps(t *testing.T) {
 	cases := []struct {
-		dsn     string
-		from    *Addr
-		to      []*Addr
-		subject string
-		body    io.Reader
-		vals    map[string]any
+		dsn        string
+		clientType string
+		errMsg     string
 	}{
 		{
-			dsnSmtps,
-			NewAddr(fmt.Sprintf("from@%s", domain), "送信者"),
-			[]*Addr{NewAddr(fmt.Sprintf("to+1@%s", domain), "受信者")},
-			"テスト件名",
-			strings.NewReader("{{.Name}}"),
-			map[string]any{"Name": "Mr. Recipient"},
+			"smtps://example.com:",
+			"*smtp.Client",
+			"",
 		},
 	}
 	for k, v := range cases {
-		m := NewMail(v.from)
-		for _, t := range v.to {
-			m.To(t)
-		}
-		m.Subject(v.subject)
-		m.Body(v.body)
-		for key, val := range v.vals {
-			m.Set(key, val)
-		}
-		ml, _ := New(v.dsn)
-		err := ml.Send(m)
+		ml := New(v.dsn)
+		dsn := newDsn(v.dsn)
+		_, err := ml.connectBySmtps(dsn)
 		if err != nil {
-			t.Errorf("[Case%d] %v", k, err)
+			if !strings.Contains(err.Error(), v.errMsg) {
+				t.Errorf("[Case%d] %v", k, err)
+			}
+			continue
+		}
+		typ := reflect.TypeOf(ml.conn).String()
+		if ml.conn != nil && typ != v.clientType {
+			t.Errorf("[Case%d] %s (%s)", k, typ, v.clientType)
+		}
+	}
+}
+
+func TestClientConnectBySmtp(t *testing.T) {
+	cases := []struct {
+		dsn        string
+		clientType string
+		errMsg     string
+	}{
+		{
+			dsnSmtp,
+			"*smtp.Client",
+			"",
+		},
+	}
+	for k, v := range cases {
+		ml := New(v.dsn)
+		dsn := newDsn(v.dsn)
+		_, err := ml.connectBySmtp(dsn)
+		if err != nil {
+			if !strings.Contains(err.Error(), v.errMsg) {
+				t.Errorf("[Case%d] %v", k, err)
+			}
+			continue
+		}
+		typ := reflect.TypeOf(ml.conn).String()
+		if ml.conn != nil && typ != v.clientType {
+			t.Errorf("[Case%d] %s (%s)", k, typ, v.clientType)
+		}
+	}
+}
+
+func TestClientConnectWithTls(t *testing.T) {
+	cases := []struct {
+		dsn        string
+		clientType string
+		errMsg     string
+	}{
+		{
+			dsnTls,
+			"*smtp.Client",
+			"",
+		},
+	}
+	for k, v := range cases {
+		ml := New(v.dsn)
+		dsn := newDsn(v.dsn)
+		_, err := ml.connectBySmtp(dsn)
+		if err != nil {
+			if !strings.Contains(err.Error(), v.errMsg) {
+				t.Errorf("[Case%d] %v", k, err)
+			}
+			continue
+		}
+		typ := reflect.TypeOf(ml.conn).String()
+		if ml.conn != nil && typ != v.clientType {
+			t.Errorf("[Case%d] %s (%s)", k, typ, v.clientType)
 		}
 	}
 }

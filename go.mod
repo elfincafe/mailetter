@@ -1,3 +1,3 @@
-module github.com/elfincafe/mailetter
+module mailetter
 
 go 1.19.0

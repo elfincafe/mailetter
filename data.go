@@ -2,6 +2,7 @@ package mailetter
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -31,12 +32,15 @@ type (
 
 func newData() *data {
 	d := new(data)
+	fmt.Printf("%T - %p\n", d, d)
+	fmt.Println("Data.New", d)
 	d.reset()
 	return d
 }
 
 func (d *data) reset() {
 	d.headers = map[string]header{}
+	d.hdrOrder = []string{}
 	d.from = nil
 	d.to = []*Address{}
 	d.cc = []*Address{}
@@ -64,7 +68,7 @@ func (d *data) setHeader(key, value string) error {
 	lowerKey := strings.ToLower(key)
 	lowerKey = strings.ReplaceAll(lowerKey, "-", "")
 	if _, ok := excepts[lowerKey]; ok {
-		return fmt.Errorf(`a header key "%s" is reserved`, key)
+		return fmt.Errorf(`header key "%s" is reserved`, key)
 	}
 
 	d.headers[lowerKey] = header{key: key, value: value}
@@ -82,8 +86,8 @@ func (d *data) setHeader(key, value string) error {
 }
 
 func (d *data) setFrom(addr *Address) error {
-	if err := addr.parse(); err != nil {
-		return fmt.Errorf(`the addess for "From:" is invalid (%s)`, err.Error())
+	if addr.address == "" {
+		return fmt.Errorf(`the addess for "From:" is invalid (%s)`, addr.address)
 	}
 	d.from = addr
 	if d.returnPath == nil {
@@ -96,40 +100,40 @@ func (d *data) setFrom(addr *Address) error {
 }
 
 func (d *data) setTo(addr *Address) error {
-	if err := addr.parse(); err != nil {
-		return fmt.Errorf(`the addess for "To:" is invalid (%s)`, err.Error())
+	if addr.address == "" {
+		return fmt.Errorf(`the addess for "To:" is invalid (%s)`, addr.address)
 	}
 	d.to = append(d.to, addr)
 	return nil
 }
 
 func (d *data) setCc(addr *Address) error {
-	if err := addr.parse(); err != nil {
-		return fmt.Errorf(`the addess for "Cc:" is invalid (%s)`, err.Error())
+	if addr.address == "" {
+		return fmt.Errorf(`the addess for "Cc:" is invalid (%s)`, addr.address)
 	}
 	d.cc = append(d.cc, addr)
 	return nil
 }
 
 func (d *data) setBcc(addr *Address) error {
-	if err := addr.parse(); err != nil {
-		return fmt.Errorf(`the addess for "Bcc:" is invalid (%s)`, err.Error())
+	if addr.address == "" {
+		return fmt.Errorf(`the addess for "Bcc:" is invalid (%s)`, addr.address)
 	}
 	d.bcc = append(d.bcc, addr)
 	return nil
 }
 
 func (d *data) setReturnPath(addr *Address) error {
-	if err := addr.parse(); err != nil {
-		return fmt.Errorf(`the addess for "Return-Path:" is invalid (%s)`, err.Error())
+	if addr.address == "" {
+		return fmt.Errorf(`the addess for "Return-Path:" is invalid (%s)`, addr.address)
 	}
 	d.returnPath = addr
 	return nil
 }
 
 func (d *data) setReplyTo(addr *Address) error {
-	if err := addr.parse(); err != nil {
-		return fmt.Errorf(`the addess for "Reply-To:" is invalid (%s)`, err.Error())
+	if addr.address == "" {
+		return fmt.Errorf(`the addess for "Reply-To:" is invalid (%s)`, addr.address)
 	}
 	d.replyTo = addr
 	return nil
@@ -153,7 +157,15 @@ func (d *data) setValue(key string, val any) {
 	d.vars[key] = val
 }
 
-func (d *data) String() string {
+func (d *data) create() (string, error) {
+	if d.from == nil {
+		return "", errors.New(`"From:" address is NOT specified.`)
+	} else if len(d.to) == 0 {
+		return "", errors.New(`"To:" address is NOT specified.`)
+	} else if d.body == nil {
+		return "", errors.New(`mail body is NOT specified.`)
+	}
+
 	sb := strings.Builder{}
 	line := strings.Builder{}
 	// buf := bytes.NewBuffer(make([]byte, 10240))
@@ -166,11 +178,11 @@ func (d *data) String() string {
 	}
 
 	// Content-Type
-	sb.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+	sb.WriteString("Content-Type: text/plain; charset=UTF-8" + br)
 	// Date
-	sb.WriteString(fmt.Sprintf("Date: %s\r\n", time.Now().Format(time.RFC1123Z)))
+	sb.WriteString(fmt.Sprintf("Date: %s%s", time.Now().Format(time.RFC1123Z), br))
 	// From
-	sb.WriteString(fmt.Sprintf("From: %s\r\n", encodeMimeString(d.from.String(), true)))
+	sb.WriteString(fmt.Sprintf("From: %s%s", encodeMimeString(d.from.String(), true), br))
 	// To, Cc
 	rcpts := map[string][]*Address{"To": d.to, "Cc": d.cc}
 	for label, addrs := range rcpts {
@@ -210,11 +222,14 @@ func (d *data) String() string {
 
 	// Body
 	buf.Reset()
+	if d.body == nil {
+		d.setBody(strings.NewReader(""))
+	}
 	d.body.Execute(buf, d.vars)
 	line.Reset()
 	line.WriteString("\r\n")
 	line.WriteString(buf.String())
 	sb.WriteString(line.String())
 
-	return sb.String()
+	return sb.String(), nil
 }
