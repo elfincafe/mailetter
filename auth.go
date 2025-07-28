@@ -1,13 +1,31 @@
 package mailetter
 
-type Auth struct {
-	user     string
-	password string
+import (
+	"encoding/base64"
+	"errors"
+	"net/smtp"
+)
+
+type (
+	Login struct {
+		username string
+		password string
+	}
+)
+
+func (auth *Login) Start(server *smtp.ServerInfo) (string, []byte, error) {
+	if !server.TLS && !isLocalhost(server.Name) {
+		return "", nil, errors.New("unencrypted connection")
+	}
+	dst := make([]byte, base64.StdEncoding.EncodedLen(len(auth.username)))
+	base64.StdEncoding.Encode(dst, []byte(auth.username))
+	return "LOGIN", dst, nil
 }
 
-func NewAuth(user string, password string) *Auth {
-	a := new(Auth)
-	a.user = user
-	a.password = password
-	return a
+func (auth *Login) Next(fromServer []byte, more bool) ([]byte, error) {
+	dst := make([]byte, base64.StdEncoding.EncodedLen(len(auth.password)))
+	if more {
+		base64.StdEncoding.Encode(dst, []byte(auth.password))
+	}
+	return dst, nil
 }

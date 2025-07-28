@@ -7,66 +7,59 @@ import (
 	"strings"
 )
 
-type dsn struct {
-	scheme string
-	host   string
-	port   int
+type (
+	dsn struct {
+		dsnStr string
+		scheme string
+		host   string
+		port   int
+		socket string
+	}
+)
+
+func newDsn(dsnStr string) *dsn {
+	d := new(dsn)
+	d.dsnStr = strings.ToLower(strings.TrimSpace(dsnStr))
+	d.scheme = ""
+	d.host = ""
+	d.port = 0
+	d.socket = ""
+	return d
 }
 
-func newDsn(str string) (*dsn, error) {
-	str = strings.ToLower(strings.TrimSpace(str))
-	u, err := url.Parse(str)
+func (d *dsn) parse() error {
+	scheme, host, port := "", "", 0
+	u, err := url.Parse(d.dsnStr)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	sDsn := new(dsn)
-	defaultPort := 0
 	switch u.Scheme {
 	case "smtp":
-		sDsn.scheme = "smtp"
-		defaultPort = 25
+		fallthrough
 	case "smtps":
-		sDsn.scheme = "smtps"
-		defaultPort = 465
+		fallthrough
 	case "smtp+tls":
-		sDsn.scheme = "smtp+tls"
-		defaultPort = 25
+		scheme = u.Scheme
 	default:
-		sDsn.scheme = "smtps"
-		defaultPort = 465
+		return fmt.Errorf(`scheme must be one of "smtp", "smtps", or "smtp+tls"`)
 	}
-	sDsn.host = u.Hostname()
-	if sDsn.host == "" {
-		return nil, fmt.Errorf(`Empty Hostname`)
+	host = u.Hostname()
+	if host == "" {
+		return fmt.Errorf(`host must be ether hostname or ip address`)
 	}
 	if u.Port() != "" {
-		port, err := strconv.ParseInt(u.Port(), 10, 32)
-		if err != nil {
-			return nil, err
+		tmpPort, err := strconv.ParseUint(u.Port(), 10, 32)
+		if err != nil || port > 65535 {
+			return fmt.Errorf(`port must be 0 - 65535`)
 		}
-		sDsn.port = int(port)
+		port = int(tmpPort)
 	} else {
-		sDsn.port = defaultPort
+		return fmt.Errorf(`port must be 0 - 65535`)
 	}
-	return sDsn, nil
-}
-
-func (dsn *dsn) Scheme() string {
-	return dsn.scheme
-}
-
-func (dsn *dsn) Host() string {
-	return dsn.host
-}
-
-func (dsn *dsn) Port() int {
-	return dsn.port
-}
-
-func (dsn *dsn) Socket() string {
-	return fmt.Sprintf("%s:%d", dsn.host, dsn.port)
-}
-
-func (dsn *dsn) IsSsl() bool {
-	return dsn.scheme == "smtps"
+	d.dsnStr = u.String()
+	d.scheme = scheme
+	d.host = host
+	d.port = port
+	d.socket = u.Host
+	return nil
 }

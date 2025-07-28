@@ -1,159 +1,100 @@
 package mailetter
 
 import (
-	"crypto/tls"
+	"encoding/base64"
+	"fmt"
+	"math/rand"
 	"net/smtp"
+	"strings"
 )
 
 const (
+	PprodctName = "MaiLetter Mail Client"
+	Version     = "0.2.1"
 	br          = "\r\n"
-	white_space = " \r\n\t\v\b"
+	whiteSpace  = " \r\n\t\v\b"
 	shouldBr    = 78
 	mustBr      = 998
 )
 
-type MaiLetter struct {
-	dsn       *dsn
-	client    *smtp.Client
-	localName string
-	tlsConfig *tls.Config
+type (
+	AuthInterface interface {
+		smtp.Auth
+	}
+)
+
+func removeBreak(s string) string {
+	for _, search := range []string{"\r", "\n"} {
+		s = strings.ReplaceAll(s, search, "")
+	}
+	return s
 }
 
-func New(dsn string) (*MaiLetter, error) {
-	oDsn, err := newDsn(dsn)
-	if err != nil {
-		return nil, err
-	}
-	ml := new(MaiLetter)
-	ml.dsn = oDsn
-	ml.client = nil
-	ml.localName = "localhost"
-	ml.tlsConfig = &tls.Config{
-		InsecureSkipVerify: true,
-		ServerName:         oDsn.Host(),
-	}
-	return ml, nil
-}
-
-func (ml *MaiLetter) LocalName(localName string) {
-	ml.localName = localName
-}
-
-func (ml *MaiLetter) Send(m *Mail) error {
-
-	var err error
-	if err = ml.connect(); err != nil {
-		return err
-	}
-
-	// Hello
-	err = ml.client.Hello(ml.localName)
-	if err != nil {
-		return err
-	}
-
-	// Mail From
-	err = ml.client.Mail(m.from.addr)
-	if err != nil {
-		return err
-	}
-
-	// Rcpt To
-	for _, addrs := range [][]*Addr{m.to, m.cc, m.bcc} {
-		for _, a := range addrs {
-			err = ml.client.Rcpt(a.addr)
-			if err != nil {
-				return err
-			}
+func encodeMime(b []byte, flg bool) []byte {
+	needsEnc := false
+	for _, v := range b {
+		if v > 127 {
+			needsEnc = true
+			break
 		}
 	}
-
-	// Data
-	wc, err := ml.client.Data()
-	if err != nil {
-		return err
+	if !needsEnc {
+		return b
 	}
-	// fmt.Println(ml.mail.create())
-	_, err = wc.Write([]byte(m.String()))
-	if err != nil {
-		return err
-	}
-	wc.Close()
-
-	return nil
-}
-
-func (ml *MaiLetter) Reset() error {
-	err := ml.client.Reset()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (ml *MaiLetter) Quit() error {
-	return ml.client.Quit()
-}
-
-func (ml *MaiLetter) Close() error {
-	if ml.client != nil {
-		return ml.client.Close()
-	}
-	return nil
-}
-
-func (ml *MaiLetter) isConnected() bool {
-	if ml.client != nil {
-		return true
+	if flg {
+		// src = bytes.Join([][]byte{[]byte("=?UTF-8?B?"), b, []byte("?=")}, []byte(""))
+		dst := make([]byte, base64.StdEncoding.EncodedLen(len(b)))
+		base64.StdEncoding.Encode(dst, b)
+		buf := []byte("=?UTF-8?B?")
+		buf = append(buf, dst...)
+		buf = append(buf, []byte("?=")...)
+		return buf
 	} else {
-		return false
+		dst := make([]byte, base64.StdEncoding.EncodedLen(len(b)))
+		base64.StdEncoding.Encode(dst, b)
+		return dst
 	}
 }
 
-func (ml *MaiLetter) connect() error {
-	if ml.isConnected() {
-		return nil
+func encodeMimeString(s string, flg bool) string {
+	needsEnc := false
+	for _, v := range s {
+		if v > 127 {
+			needsEnc = true
+			break
+		}
 	}
-	var err error
-	if ml.dsn.IsSsl() {
-		err = ml.connectWithSsl()
+	if !needsEnc {
+		return s
+	}
+	if flg {
+		return fmt.Sprintf("=?UTF-8?B?%s?=", base64.StdEncoding.EncodeToString([]byte(s)))
 	} else {
-		err = ml.connectWithoutSsl()
+		return base64.StdEncoding.EncodeToString([]byte(s))
 	}
-	return err
 }
 
-func (ml *MaiLetter) connectWithoutSsl() error {
-	client, err := smtp.Dial(ml.dsn.Socket())
-	if err != nil {
-		return err
+func border(length int) string {
+	if length < 1 {
+		length = 24
 	}
-	ml.client = client
-	return nil
+	s := []string{
+		"0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+		"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+		"n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+		"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+		"N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+	}
+	l := len(s)
+	sb := strings.Builder{}
+	sb.WriteString(strings.Repeat("-", 12))
+	for i := 0; i < length; i++ {
+		idx := rand.Intn(l - 1)
+		sb.WriteString(s[idx])
+	}
+	return sb.String()
 }
 
-func (ml *MaiLetter) connectWithSsl() error {
-	conn, err := tls.Dial("tcp", ml.dsn.Socket(), ml.tlsConfig)
-	if err != nil {
-		return err
-	}
-	client, err := smtp.NewClient(conn, ml.dsn.Host())
-	if err != nil {
-		return err
-	}
-	ml.client = client
-	return nil
-}
-
-func (ml *MaiLetter) connectAndStartTls() error {
-	var err error
-	err = ml.connectWithoutSsl()
-	if err != nil {
-		return err
-	}
-	err = ml.client.StartTLS(ml.tlsConfig)
-	if err != nil {
-		return err
-	}
-	return nil
+func isLocalhost(name string) bool {
+	return name == "localhost" || name == "127.0.0.1" || name == "::1"
 }
